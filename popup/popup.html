@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CLIP — Universal Video Clipboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="clip-app">
+    <!-- Header -->
+    <header class="clip-header">
+      <div class="clip-brand">
+        <div class="clip-logo-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+        </div>
+        <div class="clip-titles">
+          <span class="clip-title">CLIP</span>
+          <span class="clip-subtitle">Copy videos, not links</span>
+        </div>
+      </div>
+      <div class="clip-header-actions">
+        <button type="button" class="clip-plan-badge" id="pro-toggle-pill" title="Plan: Free (60s) / PRO (Sınırsız)">
+          <span class="status-dot" id="pro-dot"></span>
+          <span class="status-text" id="pro-text">Free (60s)</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="clip-main">
+      <!-- Input Section -->
+      <section class="clip-input-card" id="input-section">
+        <div class="input-wrapper">
+          <input 
+            type="url" 
+            id="video-url-input" 
+            class="clip-url-input" 
+            placeholder="YouTube, TikTok, Instagram veya X linki..." 
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <button type="button" id="paste-btn" class="clip-icon-action-btn" title="Panodan Yapıştır">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Platform Chips -->
+        <div class="platform-chips">
+          <span class="chip" data-platform="youtube">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+            YouTube
+          </span>
+          <span class="chip" data-platform="tiktok">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
+            TikTok
+          </span>
+          <span class="chip" data-platform="instagram">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+            Reels
+          </span>
+          <span class="chip" data-platform="x">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 22.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            X
+          </span>
+        </div>
+
+        <!-- Primary Action Button -->
+        <button type="button" id="process-btn" class="clip-primary-btn">
+          <span class="btn-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+          </span>
+          <span class="btn-text">Videoyu Hazırla (Panoya At)</span>
+        </button>
+      </section>
+
+      <!-- Processing State Card -->
+      <section class="clip-processing-card" id="processing-section" style="display: none;">
+        <div class="processing-spinner-ring"></div>
+        <p class="processing-title">Video Hazırlanıyor...</p>
+        <p class="processing-desc">H.264 MP4 formatına dönüştürülüp panoya kopyalanıyor</p>
+      </section>
+
+      <!-- Ready Video Result Section -->
+      <section class="clip-ready-section" id="ready-section" style="display: none;">
+        <!-- Success Banner -->
+        <div class="ready-banner">
+          <span class="ready-badge-icon">✓</span>
+          <div class="ready-banner-text">
+            <strong>Panoya Kopyalandı!</strong>
+            <span>WhatsApp veya Discord'da doğrudan Ctrl+V yapabilirsiniz</span>
+          </div>
+        </div>
+
+        <!-- Video Preview -->
+        <div class="video-preview-wrapper">
+          <video id="preview-video" class="preview-video" controls loop muted playsinline></video>
+        </div>
+
+        <!-- Draggable Zone -->
+        <div class="clip-drag-drop-zone" id="popup-drag-zone" draggable="true" title="Discord veya WhatsApp'a sürükleyin">
+          <div class="drag-icon-glow">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 3h6v6"></path>
+              <path d="M10 14L21 3"></path>
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            </svg>
+          </div>
+          <div class="drag-content">
+            <strong class="drag-heading">Videoyu Sürükle & Bırak</strong>
+            <span class="drag-subtext">Veya panodan doğrudan Ctrl+V yapın</span>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="ready-actions-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+          <button type="button" id="action-download-btn" class="action-btn secondary" title="İndir">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            İndir
+          </button>
+          <button type="button" id="action-folder-btn" class="action-btn secondary" title="Windows Gezgini'nde Dosyayı Gör">
+            📁 Klasör
+          </button>
+          <button type="button" id="action-recopy-btn" class="action-btn secondary" title="Tekrar Panoya Kopyala">
+            📋 Kopyala
+          </button>
+          <button type="button" id="action-new-btn" class="action-btn ghost">
+            Yeni
+          </button>
+        </div>
+      </section>
+
+      <!-- History Section -->
+      <section class="clip-history-section">
+        <div class="history-header">
+          <h2 class="history-title">Son Klipler</h2>
+          <button type="button" id="clear-history-btn" class="clear-btn">Temizle</button>
+        </div>
+        <div class="history-list" id="history-list">
+          <div class="history-empty" id="history-empty">
+            Henüz kopyalanan video yok. Videodaki ⚡ ikonuna basarak anında panoya alabilirsiniz.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="clip-footer">
+      <div class="limit-indicator">
+        <span class="shield-icon">🛡️</span>
+        <span>60s Dikey Video Limiti</span>
+      </div>
+      <button type="button" id="open-folder-btn" class="open-folder-link" style="background: none; border: none; color: #c084fc; cursor: pointer; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+        📁 Klipler Klasörü
+      </button>
+      <span class="version-tag">v1.3.0</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

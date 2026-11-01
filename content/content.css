@@ -1,0 +1,795 @@
+/* ==========================================================================
+   CLIP — Universal Video Clipboard: Minimalist & Pure Icon Aesthetic
+   Aesthetic: Ultra-Clean Glassmorphism (Apple Dynamic Island / Linear style)
+   ========================================================================== */
+
+:root {
+  --clip-bg: rgba(14, 18, 28, 0.92);
+  --clip-bg-card: rgba(18, 22, 36, 0.96);
+  --clip-accent: #6366f1;
+  --clip-accent-hover: #4f46e5;
+  --clip-purple: #a855f7;
+  --clip-emerald: #10b981;
+  --clip-amber: #f59e0b;
+  --clip-border: rgba(255, 255, 255, 0.16);
+  --clip-border-glow: rgba(99, 102, 241, 0.55);
+  --clip-text: #f8fafc;
+  --clip-text-muted: #94a3b8;
+  --clip-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --clip-glow: 0 0 24px -2px rgba(99, 102, 241, 0.5);
+}
+
+/* --------------------------------------------------------------------------
+   1. Platform Native Action Buttons (Side Action Columns ONLY — Never on video)
+   -------------------------------------------------------------------------- */
+.clip-shorts-action-wrapper,
+.clip-tiktok-action-wrapper,
+.clip-reels-action-wrapper {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-bottom: 16px !important;
+  margin-top: 4px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  z-index: 2147483647 !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.clip-shorts-action-circle,
+.clip-tiktok-action-circle,
+.clip-action-circle {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  background: rgba(18, 22, 36, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #c084fc !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 12px rgba(99, 102, 241, 0.25) !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  cursor: pointer !important;
+}
+
+.clip-shorts-action-wrapper:hover .clip-shorts-action-circle,
+.clip-tiktok-action-wrapper:hover .clip-tiktok-action-circle,
+.clip-reels-action-wrapper:hover .clip-action-circle {
+  transform: scale(1.12) !important;
+  box-shadow: 0 8px 24px rgba(168, 85, 247, 0.6) !important;
+  border-color: rgba(168, 85, 247, 0.8) !important;
+  color: #ffffff !important;
+}
+
+/* Standalone Single TikTok Video page button */
+.clip-single-tiktok-btn {
+  position: absolute !important;
+  top: 20px !important;
+  right: 20px !important;
+  z-index: 2147483647 !important;
+  cursor: pointer !important;
+}
+
+/* X / Twitter Action Icon */
+.clip-x-action-wrapper {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: 12px !important;
+  cursor: pointer !important;
+}
+
+.clip-x-action-circle {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: rgba(18, 22, 36, 0.75) !important;
+  backdrop-filter: blur(10px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #c084fc !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  transition: all 0.2s ease !important;
+}
+
+.clip-x-action-wrapper:hover .clip-x-action-circle {
+  transform: scale(1.1) !important;
+  color: #fff !important;
+  border-color: rgba(168, 85, 247, 0.6) !important;
+}
+
+/* Regular YouTube Watch Action Button */
+.clip-yt-action-wrapper {
+  display: inline-flex !important;
+  align-items: center !important;
+  margin-left: 8px !important;
+}
+
+.clip-yt-pill-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 0 14px !important;
+  height: 36px !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(12px) !important;
+  color: #f1f5f9 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  font-family: Roboto, Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.clip-yt-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(168, 85, 247, 0.6) !important;
+  color: #fff !important;
+}
+
+.clip-ext-icon-bolt {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #a855f7 !important;
+  transition: transform 0.2s ease !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. Apple Dynamic Island Result Capsule (Top-Center - Zero Collisions)
+   -------------------------------------------------------------------------- */
+.clip-portal-capsule {
+  position: fixed !important;
+  top: 24px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 2147483647 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px 16px !important;
+  background: rgba(14, 18, 28, 0.95) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.88), 0 0 24px rgba(99, 102, 241, 0.35) !important;
+  animation: clip-island-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  white-space: nowrap !important;
+  pointer-events: auto !important;
+}
+
+@keyframes clip-island-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -24px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.clip-island-status {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  color: #34d399 !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  letter-spacing: -0.01em !important;
+}
+
+.clip-island-divider {
+  width: 1px !important;
+  height: 18px !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+}
+
+.clip-portal-drag-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 6px 14px !important;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.28), rgba(168, 85, 247, 0.32)) !important;
+  border: 1px solid rgba(168, 85, 247, 0.55) !important;
+  border-radius: 9999px !important;
+  cursor: grab !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  user-select: none !important;
+}
+
+.clip-portal-drag-btn:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.45), rgba(168, 85, 247, 0.5)) !important;
+  border-color: rgba(168, 85, 247, 0.95) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.4) !important;
+}
+
+.clip-portal-drag-btn:active,
+.clip-portal-drag-btn.dragging {
+  cursor: grabbing !important;
+  opacity: 0.6 !important;
+  transform: scale(0.96) !important;
+}
+
+.clip-portal-icon-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+  padding: 0 !important;
+}
+
+.clip-portal-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) scale(1.06) !important;
+}
+
+.clip-portal-close-btn:hover {
+  background: rgba(239, 68, 68, 0.28) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. CLIP PRO Modal (1-Minute Limit)
+   -------------------------------------------------------------------------- */
+.clip-pro-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  animation: clip-fade-in 0.2s ease !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+@keyframes clip-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.clip-pro-card {
+  width: 100% !important;
+  max-width: 440px !important;
+  background: rgba(16, 20, 34, 0.98) !important;
+  border: 1px solid rgba(168, 85, 247, 0.45) !important;
+  border-radius: 20px !important;
+  padding: 26px !important;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.9), 0 0 35px rgba(168, 85, 247, 0.3) !important;
+  color: #ffffff !important;
+  animation: clip-card-zoom 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes clip-card-zoom {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.clip-pro-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 10px !important;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.3)) !important;
+  border: 1px solid rgba(168, 85, 247, 0.5) !important;
+  border-radius: 9999px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #e9d5ff !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  margin-bottom: 14px !important;
+}
+
+.clip-pro-title {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 0 8px 0 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.clip-pro-desc {
+  font-size: 13px !important;
+  color: #94a3b8 !important;
+  line-height: 1.5 !important;
+  margin: 0 0 20px 0 !important;
+}
+
+.clip-pro-features {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  padding: 14px !important;
+  margin-bottom: 22px !important;
+}
+
+.clip-pro-feature-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  font-size: 12px !important;
+  color: #cbd5e1 !important;
+  margin-bottom: 8px !important;
+}
+
+.clip-pro-feature-item:last-child {
+  margin-bottom: 0 !important;
+}
+
+.clip-pro-feature-icon {
+  color: #22c55e !important;
+  font-weight: 700 !important;
+}
+
+.clip-pro-actions {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+.clip-pro-primary-btn {
+  width: 100% !important;
+  padding: 12px 18px !important;
+  background: linear-gradient(135deg, #6366f1, #a855f7) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45) !important;
+}
+
+.clip-pro-primary-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 26px rgba(168, 85, 247, 0.65) !important;
+}
+
+.clip-pro-trial-btn {
+  width: 100% !important;
+  padding: 10px 18px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+}
+
+.clip-pro-trial-btn:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+}
+
+.clip-pro-cancel-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  padding: 6px !important;
+  margin-top: 4px !important;
+  text-align: center !important;
+  transition: color 0.15s ease !important;
+}
+
+.clip-pro-cancel-btn:hover {
+  color: #94a3b8 !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. Micro Animations
+   -------------------------------------------------------------------------- */
+.clip-ext-spinner {
+  width: 16px !important;
+  height: 16px !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  border-top-color: #a855f7 !important;
+  border-radius: 50% !important;
+  animation: clip-spin 0.7s linear infinite !important;
+  display: inline-block !important;
+}
+
+@keyframes clip-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --------------------------------------------------------------------------
+   5. YouTube Time Range Trimmer Modal (Precision Segment Clipper)
+   -------------------------------------------------------------------------- */
+.clip-trimmer-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(8, 10, 18, 0.75) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 2147483647 !important;
+  padding: 16px !important;
+  animation: clip-fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+.clip-trimmer-card {
+  width: 100% !important;
+  max-width: 540px !important;
+  background: rgba(14, 18, 28, 0.96) !important;
+  backdrop-filter: blur(32px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 22px !important;
+  padding: 24px !important;
+  box-shadow: 0 32px 80px -12px rgba(0, 0, 0, 0.9), 0 0 40px rgba(99, 102, 241, 0.3) !important;
+  color: #f8fafc !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+  animation: clip-card-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes clip-card-pop {
+  from { opacity: 0; transform: scale(0.94) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.clip-trimmer-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding-bottom: 14px !important;
+}
+
+.clip-trimmer-header-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.clip-trimmer-badge-icon {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, #6366f1, #a855f7) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #fff !important;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.4) !important;
+}
+
+.clip-trimmer-title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+}
+
+.clip-trimmer-subtitle {
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+  margin: 0 !important;
+}
+
+.clip-trimmer-close-btn {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 50% !important;
+  width: 30px !important;
+  height: 30px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #94a3b8 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.clip-trimmer-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #ef4444 !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+.clip-trimmer-video-info {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  padding: 10px 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  font-size: 13px !important;
+}
+
+.clip-trimmer-video-title {
+  color: #e2e8f0 !important;
+  font-weight: 500 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 340px !important;
+}
+
+.clip-trimmer-current-play {
+  color: #38bdf8 !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  white-space: nowrap !important;
+}
+
+/* Dual Range Scrubber Bar */
+.clip-timeline-container {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.clip-timeline-track-wrap {
+  position: relative !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.clip-timeline-base-track {
+  position: absolute !important;
+  width: 100% !important;
+  height: 8px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+.clip-timeline-active-highlight {
+  position: absolute !important;
+  height: 8px !important;
+  background: linear-gradient(90deg, #6366f1, #c084fc) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.6) !important;
+  pointer-events: none !important;
+}
+
+.clip-range-slider {
+  position: absolute !important;
+  width: 100% !important;
+  height: 28px !important;
+  background: transparent !important;
+  pointer-events: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  margin: 0 !important;
+  z-index: 2 !important;
+}
+
+.clip-range-slider::-webkit-slider-thumb {
+  pointer-events: auto !important;
+  -webkit-appearance: none !important;
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5), 0 0 0 3px #6366f1 !important;
+  cursor: ew-resize !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.clip-range-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2) !important;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.8), 0 0 0 4px #a855f7 !important;
+}
+
+/* Time Inputs Row */
+.clip-time-inputs-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 12px !important;
+}
+
+.clip-time-card {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 14px !important;
+  padding: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.clip-time-card-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: #94a3b8 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.clip-time-input-group {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.clip-time-val-input {
+  width: 100% !important;
+  background: rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 10px !important;
+  color: #ffffff !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  font-family: monospace, sans-serif !important;
+  padding: 6px 10px !important;
+  text-align: center !important;
+  outline: none !important;
+  transition: border-color 0.2s ease !important;
+}
+
+.clip-time-val-input:focus {
+  border-color: #a855f7 !important;
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3) !important;
+}
+
+.clip-time-sync-btn {
+  background: rgba(99, 102, 241, 0.16) !important;
+  border: 1px solid rgba(99, 102, 241, 0.35) !important;
+  color: #a5b4fc !important;
+  border-radius: 10px !important;
+  padding: 6px 10px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.2s ease !important;
+}
+
+.clip-time-sync-btn:hover {
+  background: rgba(99, 102, 241, 0.32) !important;
+  color: #fff !important;
+}
+
+/* Duration Status Pill */
+.clip-duration-status-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: rgba(16, 185, 129, 0.08) !important;
+  border: 1px solid rgba(16, 185, 129, 0.2) !important;
+  border-radius: 12px !important;
+  padding: 8px 14px !important;
+  font-size: 13px !important;
+  color: #34d399 !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+}
+
+.clip-duration-status-row.pro-warning {
+  background: rgba(245, 158, 11, 0.1) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+  color: #fbbf24 !important;
+}
+
+/* Quick Presets Row */
+.clip-presets-container {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+.clip-preset-chip {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #cbd5e1 !important;
+  border-radius: 9999px !important;
+  padding: 5px 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+}
+
+.clip-preset-chip:hover {
+  background: rgba(168, 85, 247, 0.2) !important;
+  border-color: rgba(168, 85, 247, 0.5) !important;
+  color: #fff !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Trimmer Action Buttons */
+.clip-trimmer-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin-top: 4px !important;
+}
+
+.clip-preview-play-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #f1f5f9 !important;
+  border-radius: 14px !important;
+  padding: 12px 18px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+.clip-preview-play-btn:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: #fff !important;
+}
+
+.clip-confirm-copy-btn {
+  flex: 1 !important;
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%) !important;
+  border: none !important;
+  border-radius: 14px !important;
+  padding: 12px 20px !important;
+  color: #ffffff !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45) !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.clip-confirm-copy-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 30px rgba(168, 85, 247, 0.6) !important;
+  filter: brightness(1.1) !important;
+}
+
+.clip-confirm-copy-btn:active {
+  transform: translateY(0) !important;
+}
+
