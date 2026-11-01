@@ -165,6 +165,19 @@ def copy_file_to_windows_clipboard(file_path):
         pass
     return True
 
+def is_valid_progressive_video_url(url):
+    """Checks whether a URL is a valid complete progressive video (not segmented, not audio)"""
+    if not url or not url.startswith("http"):
+        return False
+    u = url.lower()
+    # Reject segmented streams or playlists
+    if any(ext in u for ext in [".m4s", ".m3u8", ".mpd", ".ts"]):
+        return False
+    # Reject audio-only streams
+    if any(k in u for k in ["_audio", "audio_", "dash_ln_heaac", "dash_heaac", ".m4a"]):
+        return False
+    return True
+
 def ensure_whatsapp_compatible(file_path):
     """
     Ensures video is 100% compatible with WhatsApp Web / Desktop on Windows:
@@ -180,9 +193,18 @@ def ensure_whatsapp_compatible(file_path):
         probe = subprocess.run([FFMPEG_PATH, "-i", file_path], capture_output=True, text=True, errors="ignore")
         stderr = probe.stderr or ""
 
+        has_video = "Video:" in stderr
+        if not has_video:
+            print("⚠️ [CLIP] File does not contain a video stream! Rejecting.")
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+            return None
+
         has_audio = "Audio:" in stderr
-        is_h264 = "Video: h264" in stderr
-        is_aac = "Audio: aac" in stderr
+        is_h264 = ("Video: h264" in stderr or "avc1" in stderr)
+        is_aac = ("Audio: aac" in stderr or "mp4a" in stderr)
         is_yuv420p = "yuv420p" in stderr and "yuv420p10" not in stderr
 
         base_dir, base_name = os.path.split(file_path)
@@ -230,10 +252,12 @@ def ensure_whatsapp_compatible(file_path):
     except Exception as e:
         print(f"⚠️ [CLIP] FFmpeg faststart/remux pass failed: {e}")
 
-    return file_path
+    return None
 
 def download_direct_stream(video_url, filename_prefix="clip"):
     """Downloads direct progressive stream URL (e.g. from Instagram CDN or TikTok CDN)"""
+    if not is_valid_progressive_video_url(video_url):
+        return None
     try:
         # Strip bytestart and byteend so Facebook/Instagram CDN gives the FULL video from byte 0
         clean_url = video_url
@@ -261,13 +285,39 @@ def download_direct_stream(video_url, filename_prefix="clip"):
             while chunk := resp.read(65536):
                 out.write(chunk)
 
-        if os.path.exists(target_file) and os.path.getsize(target_file) > 10000:
+        if os.path.exists(target_file) and os.path.getsize(target_file) > 15000:
             final_file = ensure_whatsapp_compatible(target_file)
-            copy_file_to_windows_clipboard(final_file)
-            print(f"⚡ [CLIP] Direct stream downloaded & copied: {final_file} ({os.path.getsize(final_file)} bytes)")
-            return {"path": final_file}
+            if final_file and os.path.exists(final_file) and os.path.getsize(final_file) > 15000:
+                copy_file_to_windows_clipboard(final_file)
+                print(f"⚡ [CLIP] Direct stream downloaded & copied: {final_file} ({os.path.getsize(final_file)} bytes)")
+                return {"path": final_file}
+            else:
+                print("⚠️ [CLIP] Direct stream validation failed (corrupt or audio-only).")
     except Exception as e:
         print(f"⚠️ [CLIP] Direct stream download failed: {e}")
+    return None
+
+def download_twitter_vxtwitter(url):
+    """Fallback for Twitter (X) videos using vxTwitter API"""
+    try:
+        match = re.search(r'status/(\d+)', url)
+        if not match:
+            return None
+        tweet_id = match.group(1)
+        api_url = f"https://api.vxtwitter.com/Twitter/status/{tweet_id}"
+        req = urllib.request.Request(api_url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        })
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode())
+            media = data.get("media_extended") or []
+            for item in media:
+                if item.get("type") == "video" and item.get("url"):
+                    video_url = item["url"]
+                    print(f"⚡ [CLIP] vxTwitter API resolved MP4: {video_url[:60]}...")
+                    return download_direct_stream(video_url, "twitter")
+    except Exception as e:
+        print(f"⚠️ [CLIP] vxTwitter attempt: {e}")
     return None
 
 def download_tiktok_tikwm(url):
@@ -321,25 +371,29 @@ def download_video_ytdlp(url, is_pro=False, dom_src=None, start_time=None, end_t
         if not is_pro and clip_duration > 61:
             return {"error": "pro_required", "message": f"Kırpılan süre ({int(clip_duration)} sn) 1 dakikadan uzun. 1 dakikadan uzun klipler CLIP PRO gerektirir."}
 
-    # 1. Direct stream provided (e.g. sniffed TikTok CDN or Instagram direct MP4)
-    if dom_src and dom_src.startswith("http") and not dom_src.startswith("blob:") and not has_time_range:
-        print("⚡ [CLIP] Direct HTTP stream provided, downloading directly...")
+    is_twitter = ("twitter.com" in clean_url or "x.com" in clean_url)
+    is_instagram = "instagram.com" in clean_url
+
+    # 1. Direct stream provided (ONLY for non-Twitter and valid progressive MP4s)
+    # Twitter streams in browser are always .m4s fragments and Instagram has audio-only streams
+    if not is_twitter and not is_instagram and dom_src and is_valid_progressive_video_url(dom_src) and not has_time_range:
+        print("⚡ [CLIP] Direct progressive HTTP stream provided, downloading directly...")
         res = download_direct_stream(dom_src, "direct_video")
         if res:
             return res
 
-    # 2. TikTok specific optimizations
+    # 2. TikTok specific optimizations: try TikWM first for watermark-free MP4
     if "tiktok.com" in clean_url and not has_time_range:
-        # If it's a specific video URL, try TikWM first for ultra-fast watermark-free download
         if "/video/" in clean_url:
             tikwm_res = download_tiktok_tikwm(clean_url)
             if tikwm_res:
                 return tikwm_res
 
-    # 3. If it's a generic feed URL without ID (tiktok.com/foryou, instagram.com/) and no direct stream
+    # 3. If it's a generic feed URL without ID and no direct stream
+    has_ig_shortcode = bool(re.search(r'instagram\.com/(?:reel|reels|p|tv)/([A-Za-z0-9_-]{9,15})', clean_url))
     is_generic_feed = (
         ("tiktok.com" in clean_url and not "/video/" in clean_url) or
-        ("instagram.com" in clean_url and not any(k in clean_url for k in ["/reel/", "/p/"])) or
+        ("instagram.com" in clean_url and not has_ig_shortcode) or
         (clean_url.rstrip("/").endswith("tiktok.com") or clean_url.rstrip("/").endswith("instagram.com"))
     )
     if is_generic_feed and (not dom_src or dom_src.startswith("blob:")):
@@ -372,7 +426,7 @@ def download_video_ytdlp(url, is_pro=False, dom_src=None, start_time=None, end_t
         section_str = f"*{int(start_sec)}-{int(end_sec)}"
         cmd.extend(["--download-sections", section_str, "--force-keyframes-at-cuts"])
     elif not is_pro:
-        cmd.extend(["--match-filter", "duration <= 60"])
+        cmd.extend(["--match-filter", "duration <=? 60"])
 
     if FFMPEG_PATH:
         cmd.extend(["--ffmpeg-location", FFMPEG_PATH])
@@ -389,8 +443,9 @@ def download_video_ytdlp(url, is_pro=False, dom_src=None, start_time=None, end_t
         out_path = result.stdout.strip().splitlines()[-1] if result.stdout and result.stdout.strip() else None
         if out_path and os.path.exists(out_path):
             final_file = ensure_whatsapp_compatible(out_path)
-            copy_file_to_windows_clipboard(final_file)
-            return {"path": final_file}
+            if final_file and os.path.exists(final_file):
+                copy_file_to_windows_clipboard(final_file)
+                return {"path": final_file}
 
         if not is_pro and not out_path:
             return {"error": "pro_required", "message": "Bu video 1 dakikadan uzun. 1 dakikadan uzun videolar CLIP PRO gerektirir."}
@@ -400,7 +455,13 @@ def download_video_ytdlp(url, is_pro=False, dom_src=None, start_time=None, end_t
         if "does not pass filter" in err_out or "skipping" in err_out:
             return {"error": "pro_required", "message": "Bu video 1 dakikadan uzun. 1 dakikadan uzun videolar CLIP PRO gerektirir."}
 
-        # If it was TikTok and yt-dlp failed, try TikWM as fallback
+        # Fallback for Twitter (X): vxTwitter API
+        if is_twitter:
+            vx_res = download_twitter_vxtwitter(clean_url)
+            if vx_res:
+                return vx_res
+
+        # Fallback for TikTok: TikWM API
         if "tiktok.com" in clean_url and "/video/" in clean_url:
             tikwm_res = download_tiktok_tikwm(clean_url)
             if tikwm_res:
@@ -420,6 +481,12 @@ def download_video_ytdlp(url, is_pro=False, dom_src=None, start_time=None, end_t
     return None
 
 class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
+    def handle(self):
+        try:
+            super().handle()
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            pass
+
     def send_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")

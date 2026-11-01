@@ -28,7 +28,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Platform detection helper
   function detectPlatform(url) {
     const u = (url || "").toLowerCase();
-    if (u.includes("youtube.com") || u.includes("youtu.be")) return "youtube";
     if (u.includes("tiktok.com")) return "tiktok";
     if (u.includes("instagram.com")) return "instagram";
     if (u.includes("twitter.com") || u.includes("x.com")) return "x";

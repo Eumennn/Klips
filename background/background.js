@@ -17,7 +17,6 @@ async function injectIntoExistingTabs() {
   try {
     const tabs = await chrome.tabs.query({
       url: [
-        "*://*.youtube.com/*",
         "*://*.tiktok.com/*",
         "*://*.instagram.com/*",
         "*://*.twitter.com/*",
@@ -70,15 +69,15 @@ if (chrome.webRequest && chrome.webRequest.onBeforeRequest) {
       if (!tabId || tabId <= 0) return;
 
       try {
-        if (url.includes("googlevideo.com/videoplayback")) {
-          const cleanUrl = url.replace(/&range=[^&]+/gi, "");
-          tabMediaStreams.set(tabId, { videoUrl: cleanUrl, platform: "youtube", timestamp: Date.now() });
-        } else if (url.includes("tiktokcdn") || url.includes("byteoversea") || url.includes("tiktokcdn-us") || url.includes("tiktokv")) {
+        if (url.includes("tiktokcdn") || url.includes("byteoversea") || url.includes("tiktokcdn-us") || url.includes("tiktokv")) {
           if (url.includes(".mp4") || url.includes("mime_type=video_mp4") || url.includes("/video/tos/")) {
             tabMediaStreams.set(tabId, { videoUrl: url, platform: "tiktok", timestamp: Date.now() });
           }
         } else if (url.includes("cdninstagram.com") || url.includes("fbcdn.net")) {
-          if (url.includes(".mp4") || url.includes("bytestart=") || url.includes("efg=")) {
+          // STRICT FILTER: reject audio-only streams and segments
+          const isAudio = url.includes("audio") || url.includes("dash_ln_heaac") || url.includes(".m4a");
+          const isSegment = url.includes(".m4s") || url.includes(".mpd") || url.includes(".m3u8");
+          if (!isAudio && !isSegment && (url.includes(".mp4") || url.includes("bytestart="))) {
             const cleanUrl = url
               .replace(/&bytestart=\d+/gi, "")
               .replace(/&byteend=\d+/gi, "")
@@ -87,7 +86,10 @@ if (chrome.webRequest && chrome.webRequest.onBeforeRequest) {
             tabMediaStreams.set(tabId, { videoUrl: cleanUrl, platform: "instagram", timestamp: Date.now() });
           }
         } else if (url.includes("video.twimg.com")) {
-          tabMediaStreams.set(tabId, { videoUrl: url, platform: "x", timestamp: Date.now() });
+          // Twitter: only true .mp4 (never .m4s or .m3u8)
+          if (url.includes(".mp4") && !url.includes(".m4s") && !url.includes(".m3u8")) {
+            tabMediaStreams.set(tabId, { videoUrl: url, platform: "x", timestamp: Date.now() });
+          }
         }
       } catch (err) {
         console.warn("[CLIP] Sniffer catch:", err);
@@ -95,7 +97,6 @@ if (chrome.webRequest && chrome.webRequest.onBeforeRequest) {
     },
     {
       urls: [
-        "*://*.googlevideo.com/*",
         "*://*.tiktokcdn.com/*",
         "*://*.tiktokv.com/*",
         "*://*.byteoversea.com/*",
@@ -114,13 +115,21 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
   const cleanUrl = (url || "").trim();
   const platform = detectPlatform(cleanUrl);
 
-  // Substitute sniffed stream URL for blob: or missing stream on TikTok / Instagram
+  // Substitute sniffed stream URL for blob: or missing stream on TikTok
   let effectiveDomSrc = domSrc;
   if ((!effectiveDomSrc || effectiveDomSrc.startsWith("blob:")) && tabId && tabMediaStreams.has(tabId)) {
     const streamRec = tabMediaStreams.get(tabId);
     if (streamRec && streamRec.videoUrl && streamRec.videoUrl.startsWith("http")) {
       effectiveDomSrc = streamRec.videoUrl;
       console.log("⚡ [CLIP] Substituted sniffed stream for blob:", effectiveDomSrc.slice(0, 80));
+    }
+  }
+
+  // Filter out invalid/segmented/audio domSrc
+  if (effectiveDomSrc) {
+    const low = effectiveDomSrc.toLowerCase();
+    if (low.includes(".m4s") || low.includes(".m3u8") || low.includes(".mpd") || low.includes("audio") || low.includes("dash_ln_heaac")) {
+      effectiveDomSrc = null;
     }
   }
 
@@ -174,17 +183,7 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
     };
   }
 
-  // 3. Direct In-Page URL extracted from player
-  if (inPageUrl && inPageUrl.startsWith("http")) {
-    return {
-      success: true,
-      videoUrl: inPageUrl,
-      platform: "youtube",
-      sourceUrl: cleanUrl
-    };
-  }
-
-  // 4. Tab-specific sniffed stream (valid up to 30 seconds)
+  // 3. Tab-specific sniffed stream (valid up to 30 seconds)
   if (tabId && tabMediaStreams.has(tabId)) {
     const rec = tabMediaStreams.get(tabId);
     if (Date.now() - rec.timestamp < 30000) {
@@ -259,7 +258,6 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
 function detectPlatform(url) {
   try {
     const host = new URL(url).hostname.toLowerCase();
-    if (host.includes("youtube.com") || host.includes("youtu.be")) return "youtube";
     if (host.includes("tiktok.com")) return "tiktok";
     if (host.includes("instagram.com")) return "instagram";
     if (host.includes("twitter.com") || host.includes("x.com")) return "x";
@@ -306,6 +304,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.error("resolveVideo error:", err);
         sendResponse({ success: false, error: err.message || "İşlem sırasında hata oluştu." });
       });
+    return true;
+  }
+
+  if (message.action === "FETCH_BLOB") {
+    // Fetch video as base64 from background (bypasses content-script CORS restrictions)
+    (async () => {
+      try {
+        const res = await fetch(message.url, {
+          headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36" }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const arrayBuf = await res.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuf);
+        // Convert to base64 in chunks to avoid call stack overflow
+        let binary = "";
+        const chunkSize = 8192;
+        for (let i = 0; i < uint8.length; i += chunkSize) {
+          binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+        }
+        const base64 = btoa(binary);
+        sendResponse({ success: true, base64, mimeType: "video/mp4" });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
     return true;
   }
 

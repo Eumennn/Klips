@@ -22,7 +22,6 @@
 /* --------------------------------------------------------------------------
    1. Platform Native Action Buttons (Side Action Columns ONLY — Never on video)
    -------------------------------------------------------------------------- */
-.clip-shorts-action-wrapper,
 .clip-tiktok-action-wrapper,
 .clip-reels-action-wrapper {
   display: flex !important;
@@ -34,10 +33,11 @@
   cursor: pointer !important;
   user-select: none !important;
   z-index: 2147483647 !important;
+  flex-shrink: 0 !important;
+  contain: layout style !important;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-.clip-shorts-action-circle,
 .clip-tiktok-action-circle,
 .clip-action-circle {
   width: 48px !important;
@@ -56,7 +56,6 @@
   cursor: pointer !important;
 }
 
-.clip-shorts-action-wrapper:hover .clip-shorts-action-circle,
 .clip-tiktok-action-wrapper:hover .clip-tiktok-action-circle,
 .clip-reels-action-wrapper:hover .clip-action-circle {
   transform: scale(1.12) !important;
@@ -65,11 +64,60 @@
   color: #ffffff !important;
 }
 
-/* Standalone Single TikTok Video page button */
+/* Standalone Single TikTok Video page button & Up-Arrow Column Button */
+.clip-tiktok-arrow-nav-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-bottom: 12px !important;
+  margin-top: 4px !important;
+  cursor: pointer !important;
+  z-index: 2147483647 !important;
+  user-select: none !important;
+}
+
+.clip-tiktok-arrow-nav-btn .clip-tiktok-action-circle,
+.clip-tiktok-overlay-btn .clip-tiktok-action-circle,
+.clip-single-tiktok-btn .clip-tiktok-action-circle {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  background: rgba(18, 22, 36, 0.88) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: #c084fc !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px rgba(99, 102, 241, 0.3) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer !important;
+}
+
+.clip-tiktok-arrow-nav-btn:hover .clip-tiktok-action-circle,
+.clip-tiktok-overlay-btn:hover .clip-tiktok-action-circle,
+.clip-single-tiktok-btn:hover .clip-tiktok-action-circle {
+  transform: scale(1.15) !important;
+  background: rgba(30, 27, 75, 0.95) !important;
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.6) !important;
+  border-color: rgba(168, 85, 247, 0.9) !important;
+  color: #ffffff !important;
+}
+
+/* Fallback: Overlay button positioned right above where the up-arrow sits on the right border */
+.clip-tiktok-overlay-btn {
+  position: absolute !important;
+  top: calc(50% - 68px) !important;
+  right: 18px !important;
+  z-index: 2147483647 !important;
+  cursor: pointer !important;
+}
+
 .clip-single-tiktok-btn {
   position: absolute !important;
-  top: 20px !important;
-  right: 20px !important;
+  top: 24px !important;
+  right: 24px !important;
   z-index: 2147483647 !important;
   cursor: pointer !important;
 }
@@ -101,37 +149,6 @@
   transform: scale(1.1) !important;
   color: #fff !important;
   border-color: rgba(168, 85, 247, 0.6) !important;
-}
-
-/* Regular YouTube Watch Action Button */
-.clip-yt-action-wrapper {
-  display: inline-flex !important;
-  align-items: center !important;
-  margin-left: 8px !important;
-}
-
-.clip-yt-pill-btn {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  padding: 0 14px !important;
-  height: 36px !important;
-  border-radius: 18px !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(12px) !important;
-  color: #f1f5f9 !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  font-family: Roboto, Arial, sans-serif !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
-}
-
-.clip-yt-pill-btn:hover {
-  background: rgba(255, 255, 255, 0.2) !important;
-  border-color: rgba(168, 85, 247, 0.6) !important;
-  color: #fff !important;
 }
 
 .clip-ext-icon-bolt {
@@ -424,309 +441,3 @@
 @keyframes clip-spin {
   to { transform: rotate(360deg); }
 }
-
-/* --------------------------------------------------------------------------
-   5. Minimalist YouTube Time Range Trimmer (Apple / Linear Aesthetic — Zero Slop)
-   -------------------------------------------------------------------------- */
-.clip-trimmer-overlay {
-  position: fixed !important;
-  inset: 0 !important;
-  background: rgba(0, 0, 0, 0.65) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  z-index: 2147483647 !important;
-  padding: 16px !important;
-  animation: clip-fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-}
-
-.clip-trimmer-card {
-  width: 100% !important;
-  max-width: 410px !important;
-  background: rgba(18, 22, 34, 0.95) !important;
-  backdrop-filter: blur(28px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 18px !important;
-  padding: 18px 20px !important;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.2) !important;
-  color: #f1f5f9 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 14px !important;
-  animation: clip-card-pop 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-.clip-trimmer-header {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-}
-
-.clip-trimmer-title-wrap {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-}
-
-.clip-trimmer-bolt {
-  color: #a855f7 !important;
-  display: flex !important;
-  align-items: center !important;
-}
-
-.clip-trimmer-title {
-  font-size: 14px !important;
-  font-weight: 600 !important;
-  letter-spacing: -0.01em !important;
-  color: #f8fafc !important;
-}
-
-.clip-trimmer-dur-pill {
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  color: #10b981 !important;
-  background: rgba(16, 185, 129, 0.12) !important;
-  border: 1px solid rgba(16, 185, 129, 0.25) !important;
-  padding: 2px 8px !important;
-  border-radius: 9999px !important;
-}
-
-.clip-trimmer-dur-pill.is-pro {
-  color: #f59e0b !important;
-  background: rgba(245, 158, 11, 0.12) !important;
-  border-color: rgba(245, 158, 11, 0.25) !important;
-}
-
-.clip-trimmer-close-btn {
-  background: transparent !important;
-  border: none !important;
-  color: #64748b !important;
-  width: 24px !important;
-  height: 24px !important;
-  border-radius: 6px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  transition: all 0.15s ease !important;
-}
-
-.clip-trimmer-close-btn:hover {
-  color: #f1f5f9 !important;
-  background: rgba(255, 255, 255, 0.08) !important;
-}
-
-/* Timeline */
-.clip-timeline-wrap {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 6px !important;
-}
-
-.clip-timeline-bar {
-  position: relative !important;
-  height: 24px !important;
-  display: flex !important;
-  align-items: center !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-  border-radius: 6px !important;
-  padding: 0 2px !important;
-}
-
-.clip-timeline-fill {
-  position: absolute !important;
-  height: 8px !important;
-  background: linear-gradient(90deg, #6366f1, #a855f7) !important;
-  border-radius: 4px !important;
-  pointer-events: none !important;
-  box-shadow: 0 0 10px rgba(168, 85, 247, 0.5) !important;
-}
-
-.clip-slider {
-  position: absolute !important;
-  width: 100% !important;
-  height: 24px !important;
-  background: transparent !important;
-  pointer-events: none !important;
-  -webkit-appearance: none !important;
-  appearance: none !important;
-  margin: 0 !important;
-}
-
-.clip-slider::-webkit-slider-thumb {
-  pointer-events: auto !important;
-  -webkit-appearance: none !important;
-  width: 16px !important;
-  height: 16px !important;
-  border-radius: 50% !important;
-  background: #ffffff !important;
-  border: 2px solid #a855f7 !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
-  cursor: ew-resize !important;
-  transition: transform 0.12s ease !important;
-}
-
-.clip-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.25) !important;
-}
-
-.clip-timeline-timestamps {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  font-size: 11px !important;
-  color: #94a3b8 !important;
-  font-variant-numeric: tabular-nums !important;
-  padding: 0 2px !important;
-}
-
-.clip-time-cur {
-  color: #64748b !important;
-}
-
-/* Single Controls Row */
-.clip-controls-row {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 8px !important;
-}
-
-.clip-time-pill {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 4px !important;
-  background: rgba(0, 0, 0, 0.35) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 8px !important;
-  padding: 3px 6px !important;
-}
-
-.clip-input-time {
-  width: 48px !important;
-  background: transparent !important;
-  border: none !important;
-  color: #f8fafc !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  font-family: inherit !important;
-  text-align: center !important;
-  outline: none !important;
-  padding: 2px 0 !important;
-}
-
-.clip-input-time:focus {
-  color: #c084fc !important;
-}
-
-.clip-time-sep {
-  color: #64748b !important;
-  font-size: 11px !important;
-  user-select: none !important;
-}
-
-.clip-sync-btn {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  color: #cbd5e1 !important;
-  border-radius: 5px !important;
-  font-size: 11px !important;
-  font-weight: 500 !important;
-  padding: 3px 6px !important;
-  cursor: pointer !important;
-  white-space: nowrap !important;
-  transition: all 0.15s ease !important;
-}
-
-.clip-sync-btn:hover {
-  background: rgba(255, 255, 255, 0.15) !important;
-  color: #fff !important;
-}
-
-.clip-chips {
-  display: flex !important;
-  gap: 4px !important;
-}
-
-.clip-chip {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  color: #94a3b8 !important;
-  border-radius: 6px !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  padding: 4px 8px !important;
-  cursor: pointer !important;
-  transition: all 0.15s ease !important;
-}
-
-.clip-chip:hover {
-  background: rgba(168, 85, 247, 0.15) !important;
-  border-color: rgba(168, 85, 247, 0.4) !important;
-  color: #e2e8f0 !important;
-}
-
-/* Actions Row */
-.clip-actions-row {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  margin-top: 2px !important;
-}
-
-.clip-btn-preview {
-  background: rgba(255, 255, 255, 0.06) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: #cbd5e1 !important;
-  border-radius: 10px !important;
-  padding: 9px 12px !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  transition: all 0.15s ease !important;
-}
-
-.clip-btn-preview:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
-  color: #fff !important;
-}
-
-.clip-btn-primary {
-  flex: 1 !important;
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%) !important;
-  border: none !important;
-  border-radius: 10px !important;
-  padding: 9px 14px !important;
-  color: #ffffff !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 6px !important;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4) !important;
-  transition: all 0.18s ease !important;
-}
-
-.clip-btn-primary:hover {
-  filter: brightness(1.1) !important;
-  box-shadow: 0 6px 18px rgba(168, 85, 247, 0.5) !important;
-}
-
-.clip-kbd {
-  font-size: 10px !important;
-  background: rgba(0, 0, 0, 0.25) !important;
-  padding: 1px 5px !important;
-  border-radius: 4px !important;
-  color: rgba(255, 255, 255, 0.85) !important;
-}
-
-
