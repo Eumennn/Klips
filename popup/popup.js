@@ -267,6 +267,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   clearHistoryBtn.addEventListener("click", async () => {
+    try {
+      await fetch("http://127.0.0.1:48123/clean");
+    } catch (_) {}
     await chrome.storage.local.set({ clipHistory: [] });
     loadHistory();
   });

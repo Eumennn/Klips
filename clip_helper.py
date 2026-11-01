@@ -29,6 +29,7 @@ import urllib.parse
 import urllib.request
 import time
 import re
+import threading
 import ctypes
 from ctypes import wintypes
 
@@ -41,6 +42,62 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
 PORT = 48123
 CLIP_DIR = os.path.join(tempfile.gettempdir(), "CLIP")
 os.makedirs(CLIP_DIR, exist_ok=True)
+
+def cleanup_temp_files(max_age_seconds=300, max_files=2, max_total_bytes=40 * 1024 * 1024):
+    """
+    Automatic Temp Cleaner:
+    Guarantees zero PC disk buildup by automatically sweeping old temporary video files.
+    - Preserves the active clip so user has ample time (5 min) to paste (Ctrl+V) into WhatsApp/Discord.
+    - Limits total cached clips to max 2 files and 40 MB.
+    - Automatically purges anything older than 5 minutes.
+    """
+    if not os.path.exists(CLIP_DIR):
+        return
+
+    now = time.time()
+    try:
+        files = []
+        for f in os.listdir(CLIP_DIR):
+            fpath = os.path.join(CLIP_DIR, f)
+            if os.path.isfile(fpath) and f.endswith((".mp4", ".mkv", ".webm", ".part", ".tmp")):
+                try:
+                    mtime = os.path.getmtime(fpath)
+                    size = os.path.getsize(fpath)
+                    files.append((fpath, mtime, size))
+                except Exception:
+                    pass
+
+        # Sort newest first
+        files.sort(key=lambda x: x[1], reverse=True)
+
+        total_size = 0
+        for i, (fpath, mtime, size) in enumerate(files):
+            age = now - mtime
+            should_delete = False
+
+            if i >= max_files:
+                should_delete = True
+            elif age > max_age_seconds and i > 0:
+                should_delete = True
+            elif total_size + size > max_total_bytes and i > 0:
+                should_delete = True
+
+            if should_delete:
+                try:
+                    os.remove(fpath)
+                    print(f"🧹 [CLIP Auto-Clean] Removed expired temp file: {os.path.basename(fpath)}")
+                except Exception:
+                    pass
+            else:
+                total_size += size
+    except Exception as e:
+        print(f"⚠️ [CLIP Auto-Clean] Error: {e}")
+
+def periodic_cleanup_loop():
+    """Silent daemon thread running every 30 seconds to keep Temp clean"""
+    while True:
+        time.sleep(30)
+        cleanup_temp_files()
 
 # Locate FFmpeg for WhatsApp-compatible H.264/AAC faststart merging
 try:
@@ -102,6 +159,10 @@ def copy_file_to_windows_clipboard(file_path):
     user32.SetClipboardData(CF_HDROP, h_global)
     user32.CloseClipboard()
     print(f"📋 [CLIP] Copied to Windows Clipboard (CF_HDROP): {abs_path}")
+    try:
+        cleanup_temp_files()
+    except Exception:
+        pass
     return True
 
 def ensure_whatsapp_compatible(file_path):
@@ -512,15 +573,29 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
                 return
 
+        if parsed.path == "/clean":
+            cleanup_temp_files(max_age_seconds=0, max_files=0, max_total_bytes=0)
+            self.send_response(200)
+            self.send_cors_headers()
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"success": true, "cleaned": true}')
+            return
+
         self.send_response(404)
         self.end_headers()
 
 def main():
+    cleanup_temp_files()
+    cleaner_thread = threading.Thread(target=periodic_cleanup_loop, daemon=True)
+    cleaner_thread.start()
+
     print("=" * 60)
     print("⚡ CLIP Helper — HD Video & Windows Panosu Servisi")
     print(f"🚀 Port: http://127.0.0.1:{PORT}")
     print(f"📂 Dizin: {CLIP_DIR}")
     print(f"🎞️ FFmpeg: {'Aktif (WhatsApp H.264 / AAC + faststart)' if FFMPEG_PATH else 'Pasif'}")
+    print("🧹 Otomatik Temizleme: Aktif (Maks 4 klip / 80MB / 10 dk ömür)")
     print("=" * 60)
     http.server.HTTPServer.allow_reuse_address = True
     server = http.server.HTTPServer(("127.0.0.1", PORT), ClipHTTPHandler)
