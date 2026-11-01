@@ -426,370 +426,307 @@
 }
 
 /* --------------------------------------------------------------------------
-   5. YouTube Time Range Trimmer Modal (Precision Segment Clipper)
+   5. Minimalist YouTube Time Range Trimmer (Apple / Linear Aesthetic — Zero Slop)
    -------------------------------------------------------------------------- */
 .clip-trimmer-overlay {
   position: fixed !important;
   inset: 0 !important;
-  background: rgba(8, 10, 18, 0.75) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
+  background: rgba(0, 0, 0, 0.65) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   z-index: 2147483647 !important;
   padding: 16px !important;
-  animation: clip-fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  animation: clip-fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
 .clip-trimmer-card {
   width: 100% !important;
-  max-width: 540px !important;
-  background: rgba(14, 18, 28, 0.96) !important;
-  backdrop-filter: blur(32px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.16) !important;
-  border-radius: 22px !important;
-  padding: 24px !important;
-  box-shadow: 0 32px 80px -12px rgba(0, 0, 0, 0.9), 0 0 40px rgba(99, 102, 241, 0.3) !important;
-  color: #f8fafc !important;
+  max-width: 410px !important;
+  background: rgba(18, 22, 34, 0.95) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 18px !important;
+  padding: 18px 20px !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.2) !important;
+  color: #f1f5f9 !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 18px !important;
-  animation: clip-card-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-@keyframes clip-card-pop {
-  from { opacity: 0; transform: scale(0.94) translateY(12px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  gap: 14px !important;
+  animation: clip-card-pop 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .clip-trimmer-header {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  padding-bottom: 14px !important;
 }
 
-.clip-trimmer-header-left {
+.clip-trimmer-title-wrap {
   display: flex !important;
   align-items: center !important;
-  gap: 10px !important;
-}
-
-.clip-trimmer-badge-icon {
-  width: 32px !important;
-  height: 32px !important;
-  border-radius: 10px !important;
-  background: linear-gradient(135deg, #6366f1, #a855f7) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  color: #fff !important;
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.4) !important;
-}
-
-.clip-trimmer-title {
-  font-size: 16px !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.02em !important;
-  color: #ffffff !important;
-  margin: 0 !important;
-}
-
-.clip-trimmer-subtitle {
-  font-size: 12px !important;
-  color: #94a3b8 !important;
-  margin: 0 !important;
-}
-
-.clip-trimmer-close-btn {
-  background: rgba(255, 255, 255, 0.06) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 50% !important;
-  width: 30px !important;
-  height: 30px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  color: #94a3b8 !important;
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
-}
-
-.clip-trimmer-close-btn:hover {
-  background: rgba(239, 68, 68, 0.2) !important;
-  color: #ef4444 !important;
-  border-color: rgba(239, 68, 68, 0.4) !important;
-}
-
-.clip-trimmer-video-info {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 12px !important;
-  padding: 10px 14px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 12px !important;
-  font-size: 13px !important;
-}
-
-.clip-trimmer-video-title {
-  color: #e2e8f0 !important;
-  font-weight: 500 !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  max-width: 340px !important;
-}
-
-.clip-trimmer-current-play {
-  color: #38bdf8 !important;
-  font-weight: 600 !important;
-  font-size: 12px !important;
-  background: rgba(56, 189, 248, 0.12) !important;
-  padding: 4px 8px !important;
-  border-radius: 6px !important;
-  white-space: nowrap !important;
-}
-
-/* Dual Range Scrubber Bar */
-.clip-timeline-container {
-  display: flex !important;
-  flex-direction: column !important;
   gap: 8px !important;
 }
 
-.clip-timeline-track-wrap {
-  position: relative !important;
-  height: 28px !important;
+.clip-trimmer-bolt {
+  color: #a855f7 !important;
   display: flex !important;
   align-items: center !important;
 }
 
-.clip-timeline-base-track {
-  position: absolute !important;
-  width: 100% !important;
-  height: 8px !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  border-radius: 4px !important;
-  overflow: hidden !important;
+.clip-trimmer-title {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  color: #f8fafc !important;
 }
 
-.clip-timeline-active-highlight {
+.clip-trimmer-dur-pill {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #10b981 !important;
+  background: rgba(16, 185, 129, 0.12) !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+  padding: 2px 8px !important;
+  border-radius: 9999px !important;
+}
+
+.clip-trimmer-dur-pill.is-pro {
+  color: #f59e0b !important;
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+.clip-trimmer-close-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #64748b !important;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.clip-trimmer-close-btn:hover {
+  color: #f1f5f9 !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Timeline */
+.clip-timeline-wrap {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.clip-timeline-bar {
+  position: relative !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  padding: 0 2px !important;
+}
+
+.clip-timeline-fill {
   position: absolute !important;
   height: 8px !important;
-  background: linear-gradient(90deg, #6366f1, #c084fc) !important;
+  background: linear-gradient(90deg, #6366f1, #a855f7) !important;
   border-radius: 4px !important;
-  box-shadow: 0 0 12px rgba(168, 85, 247, 0.6) !important;
   pointer-events: none !important;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.5) !important;
 }
 
-.clip-range-slider {
+.clip-slider {
   position: absolute !important;
   width: 100% !important;
-  height: 28px !important;
+  height: 24px !important;
   background: transparent !important;
   pointer-events: none !important;
   -webkit-appearance: none !important;
   appearance: none !important;
   margin: 0 !important;
-  z-index: 2 !important;
 }
 
-.clip-range-slider::-webkit-slider-thumb {
+.clip-slider::-webkit-slider-thumb {
   pointer-events: auto !important;
   -webkit-appearance: none !important;
-  width: 20px !important;
-  height: 20px !important;
+  width: 16px !important;
+  height: 16px !important;
   border-radius: 50% !important;
   background: #ffffff !important;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5), 0 0 0 3px #6366f1 !important;
+  border: 2px solid #a855f7 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
   cursor: ew-resize !important;
-  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+  transition: transform 0.12s ease !important;
 }
 
-.clip-range-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2) !important;
-  box-shadow: 0 0 14px rgba(168, 85, 247, 0.8), 0 0 0 4px #a855f7 !important;
+.clip-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.25) !important;
 }
 
-/* Time Inputs Row */
-.clip-time-inputs-grid {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  gap: 12px !important;
-}
-
-.clip-time-card {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 14px !important;
-  padding: 12px !important;
+.clip-timeline-timestamps {
   display: flex !important;
-  flex-direction: column !important;
-  gap: 8px !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-size: 11px !important;
+  color: #94a3b8 !important;
+  font-variant-numeric: tabular-nums !important;
+  padding: 0 2px !important;
 }
 
-.clip-time-card-label {
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
-  color: #94a3b8 !important;
+.clip-time-cur {
+  color: #64748b !important;
+}
+
+/* Single Controls Row */
+.clip-controls-row {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
+  gap: 8px !important;
 }
 
-.clip-time-input-group {
-  display: flex !important;
+.clip-time-pill {
+  display: inline-flex !important;
   align-items: center !important;
-  gap: 6px !important;
+  gap: 4px !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  padding: 3px 6px !important;
 }
 
-.clip-time-val-input {
-  width: 100% !important;
-  background: rgba(0, 0, 0, 0.4) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 10px !important;
-  color: #ffffff !important;
-  font-size: 15px !important;
-  font-weight: 700 !important;
-  font-family: monospace, sans-serif !important;
-  padding: 6px 10px !important;
+.clip-input-time {
+  width: 48px !important;
+  background: transparent !important;
+  border: none !important;
+  color: #f8fafc !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
   text-align: center !important;
   outline: none !important;
-  transition: border-color 0.2s ease !important;
+  padding: 2px 0 !important;
 }
 
-.clip-time-val-input:focus {
-  border-color: #a855f7 !important;
-  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3) !important;
+.clip-input-time:focus {
+  color: #c084fc !important;
 }
 
-.clip-time-sync-btn {
-  background: rgba(99, 102, 241, 0.16) !important;
-  border: 1px solid rgba(99, 102, 241, 0.35) !important;
-  color: #a5b4fc !important;
-  border-radius: 10px !important;
-  padding: 6px 10px !important;
+.clip-time-sep {
+  color: #64748b !important;
   font-size: 11px !important;
-  font-weight: 600 !important;
+  user-select: none !important;
+}
+
+.clip-sync-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #cbd5e1 !important;
+  border-radius: 5px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  padding: 3px 6px !important;
   cursor: pointer !important;
   white-space: nowrap !important;
-  transition: all 0.2s ease !important;
+  transition: all 0.15s ease !important;
 }
 
-.clip-time-sync-btn:hover {
-  background: rgba(99, 102, 241, 0.32) !important;
+.clip-sync-btn:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
   color: #fff !important;
 }
 
-/* Duration Status Pill */
-.clip-duration-status-row {
+.clip-chips {
   display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  background: rgba(16, 185, 129, 0.08) !important;
-  border: 1px solid rgba(16, 185, 129, 0.2) !important;
-  border-radius: 12px !important;
-  padding: 8px 14px !important;
-  font-size: 13px !important;
-  color: #34d399 !important;
+  gap: 4px !important;
+}
+
+.clip-chip {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #94a3b8 !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
   font-weight: 600 !important;
-  transition: all 0.2s ease !important;
+  padding: 4px 8px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
 }
 
-.clip-duration-status-row.pro-warning {
-  background: rgba(245, 158, 11, 0.1) !important;
-  border-color: rgba(245, 158, 11, 0.3) !important;
-  color: #fbbf24 !important;
+.clip-chip:hover {
+  background: rgba(168, 85, 247, 0.15) !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+  color: #e2e8f0 !important;
 }
 
-/* Quick Presets Row */
-.clip-presets-container {
+/* Actions Row */
+.clip-actions-row {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
-  flex-wrap: wrap !important;
+  margin-top: 2px !important;
 }
 
-.clip-preset-chip {
+.clip-btn-preview {
   background: rgba(255, 255, 255, 0.06) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   color: #cbd5e1 !important;
-  border-radius: 9999px !important;
-  padding: 5px 12px !important;
+  border-radius: 10px !important;
+  padding: 9px 12px !important;
   font-size: 12px !important;
   font-weight: 600 !important;
   cursor: pointer !important;
-  transition: all 0.18s ease !important;
-}
-
-.clip-preset-chip:hover {
-  background: rgba(168, 85, 247, 0.2) !important;
-  border-color: rgba(168, 85, 247, 0.5) !important;
-  color: #fff !important;
-  transform: translateY(-1px) !important;
-}
-
-/* Trimmer Action Buttons */
-.clip-trimmer-actions {
-  display: flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-  margin-top: 4px !important;
-}
-
-.clip-preview-play-btn {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  color: #f1f5f9 !important;
-  border-radius: 14px !important;
-  padding: 12px 18px !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-  display: flex !important;
+  display: inline-flex !important;
   align-items: center !important;
   gap: 6px !important;
-  transition: all 0.2s ease !important;
+  transition: all 0.15s ease !important;
 }
 
-.clip-preview-play-btn:hover {
-  background: rgba(255, 255, 255, 0.16) !important;
+.clip-btn-preview:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
   color: #fff !important;
 }
 
-.clip-confirm-copy-btn {
+.clip-btn-primary {
   flex: 1 !important;
   background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%) !important;
   border: none !important;
-  border-radius: 14px !important;
-  padding: 12px 20px !important;
+  border-radius: 10px !important;
+  padding: 9px 14px !important;
   color: #ffffff !important;
-  font-size: 14px !important;
-  font-weight: 700 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
   cursor: pointer !important;
-  display: flex !important;
+  display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 8px !important;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45) !important;
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  gap: 6px !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4) !important;
+  transition: all 0.18s ease !important;
 }
 
-.clip-confirm-copy-btn:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 12px 30px rgba(168, 85, 247, 0.6) !important;
+.clip-btn-primary:hover {
   filter: brightness(1.1) !important;
+  box-shadow: 0 6px 18px rgba(168, 85, 247, 0.5) !important;
 }
 
-.clip-confirm-copy-btn:active {
-  transform: translateY(0) !important;
+.clip-kbd {
+  font-size: 10px !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  padding: 1px 5px !important;
+  border-radius: 4px !important;
+  color: rgba(255, 255, 255, 0.85) !important;
 }
+
 

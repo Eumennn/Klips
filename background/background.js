@@ -79,7 +79,12 @@ if (chrome.webRequest && chrome.webRequest.onBeforeRequest) {
           }
         } else if (url.includes("cdninstagram.com") || url.includes("fbcdn.net")) {
           if (url.includes(".mp4") || url.includes("bytestart=") || url.includes("efg=")) {
-            tabMediaStreams.set(tabId, { videoUrl: url, platform: "instagram", timestamp: Date.now() });
+            const cleanUrl = url
+              .replace(/&bytestart=\d+/gi, "")
+              .replace(/&byteend=\d+/gi, "")
+              .replace(/bytestart=\d+&?/gi, "")
+              .replace(/byteend=\d+&?/gi, "");
+            tabMediaStreams.set(tabId, { videoUrl: cleanUrl, platform: "instagram", timestamp: Date.now() });
           }
         } else if (url.includes("video.twimg.com")) {
           tabMediaStreams.set(tabId, { videoUrl: url, platform: "x", timestamp: Date.now() });

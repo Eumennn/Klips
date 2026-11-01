@@ -447,7 +447,7 @@
   }
 
   /**
-   * YouTube Interactive Time Range Trimmer Modal
+   * YouTube Minimalist Time Range Trimmer Modal (Clean Apple/Linear Aesthetic — Zero Slop)
    */
   function openYouTubeTrimmerModal(videoEl, exactUrl, sourceBtn) {
     const existing = document.getElementById("clip-youtube-trimmer-modal");
@@ -456,13 +456,12 @@
     const totalDuration = (videoEl && !isNaN(videoEl.duration) && videoEl.duration > 0) ? Math.floor(videoEl.duration) : 600;
     const curTime = (videoEl && !isNaN(videoEl.currentTime)) ? Math.floor(videoEl.currentTime) : 0;
 
-    let initialStart = curTime > 15 ? Math.max(0, curTime - 15) : 0;
+    // Strictly default to a clean 30-second window around current playback time
+    let initialStart = curTime > 5 ? Math.max(0, curTime - 5) : 0;
     let initialEnd = Math.min(totalDuration, initialStart + 30);
-    if (initialEnd - initialStart < 5) {
-      initialEnd = Math.min(totalDuration, initialStart + 5);
+    if (initialEnd <= initialStart) {
+      initialEnd = Math.min(totalDuration, initialStart + 15);
     }
-
-    const videoTitle = document.querySelector("h1.ytd-watch-metadata yt-formatted-string, #title h1, h1")?.textContent?.trim() || document.title || "YouTube Video";
 
     const overlay = document.createElement("div");
     overlay.id = "clip-youtube-trimmer-modal";
@@ -471,72 +470,51 @@
     overlay.innerHTML = `
       <div class="clip-trimmer-card">
         <div class="clip-trimmer-header">
-          <div class="clip-trimmer-header-left">
-            <div class="clip-trimmer-badge-icon">${ICONS.bolt}</div>
-            <div>
-              <h3 class="clip-trimmer-title">CLIP Video Kırpıcı</h3>
-              <p class="clip-trimmer-subtitle">WhatsApp & Discord için istediğin saniyeleri seç ve anında kopyala</p>
-            </div>
+          <div class="clip-trimmer-title-wrap">
+            <span class="clip-trimmer-bolt">${ICONS.bolt}</span>
+            <span class="clip-trimmer-title">Kırp & Kopyala</span>
           </div>
+          <div class="clip-trimmer-dur-pill" id="clip-dur-pill">30 sn</div>
           <button class="clip-trimmer-close-btn" id="clip-modal-close-btn" title="Kapat">${ICONS.close}</button>
         </div>
 
-        <div class="clip-trimmer-video-info">
-          <span class="clip-trimmer-video-title" title="${videoTitle}">🎬 ${videoTitle}</span>
-          <span class="clip-trimmer-current-play" id="clip-cur-time-display">🔴 Oynatma: ${formatSecondsToTime(curTime)}</span>
-        </div>
-
-        <div class="clip-timeline-container">
-          <div class="clip-timeline-track-wrap">
-            <div class="clip-timeline-base-track"></div>
-            <div class="clip-timeline-active-highlight" id="clip-timeline-hl"></div>
-            <input type="range" class="clip-range-slider" id="clip-slider-start" min="0" max="${totalDuration}" step="1" value="${initialStart}">
-            <input type="range" class="clip-range-slider" id="clip-slider-end" min="0" max="${totalDuration}" step="1" value="${initialEnd}">
+        <div class="clip-timeline-wrap">
+          <div class="clip-timeline-bar">
+            <div class="clip-timeline-fill" id="clip-timeline-hl"></div>
+            <input type="range" class="clip-slider" id="clip-slider-start" min="0" max="${totalDuration}" step="1" value="${initialStart}">
+            <input type="range" class="clip-slider" id="clip-slider-end" min="0" max="${totalDuration}" step="1" value="${initialEnd}">
+          </div>
+          <div class="clip-timeline-timestamps">
+            <span id="clip-label-start">${formatSecondsToTime(initialStart)}</span>
+            <span class="clip-time-cur" id="clip-label-cur">Şu an: ${formatSecondsToTime(curTime)}</span>
+            <span id="clip-label-end">${formatSecondsToTime(initialEnd)}</span>
           </div>
         </div>
 
-        <div class="clip-time-inputs-grid">
-          <div class="clip-time-card">
-            <div class="clip-time-card-label">
-              <span>Başlangıç</span>
-              <button class="clip-time-sync-btn" id="clip-sync-start-btn">📍 Oynatıcıdan Al</button>
-            </div>
-            <div class="clip-time-input-group">
-              <input type="text" class="clip-time-val-input" id="clip-start-val" value="${formatSecondsToTime(initialStart)}">
-            </div>
+        <div class="clip-controls-row">
+          <div class="clip-time-pill">
+            <input type="text" class="clip-input-time" id="clip-start-val" value="${formatSecondsToTime(initialStart)}">
+            <span class="clip-time-sep">→</span>
+            <input type="text" class="clip-input-time" id="clip-end-val" value="${formatSecondsToTime(initialEnd)}">
+            <button class="clip-sync-btn" id="clip-sync-now-btn" title="Oynatılan zamandan itibaren 30 sn seç">Şu anı al</button>
           </div>
 
-          <div class="clip-time-card">
-            <div class="clip-time-card-label">
-              <span>Bitiş</span>
-              <button class="clip-time-sync-btn" id="clip-sync-end-btn">📍 Oynatıcıdan Al</button>
-            </div>
-            <div class="clip-time-input-group">
-              <input type="text" class="clip-time-val-input" id="clip-end-val" value="${formatSecondsToTime(initialEnd)}">
-            </div>
+          <div class="clip-chips">
+            <button class="clip-chip" data-preset="15">15s</button>
+            <button class="clip-chip" data-preset="30">30s</button>
+            <button class="clip-chip" data-preset="60">60s</button>
           </div>
         </div>
 
-        <div class="clip-duration-status-row" id="clip-dur-status">
-          <span id="clip-dur-text">⏱️ Seçilen Süre: 30 sn</span>
-          <span id="clip-dur-badge">✓ WhatsApp / Discord Hızlı Kopyalama</span>
-        </div>
-
-        <div class="clip-presets-container">
-          <span style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">Hızlı Seçim:</span>
-          <button class="clip-preset-chip" data-preset="prev15">⚡ Son 15 sn</button>
-          <button class="clip-preset-chip" data-preset="prev30">⚡ Son 30 sn</button>
-          <button class="clip-preset-chip" data-preset="prev60">⚡ Son 60 sn</button>
-          <button class="clip-preset-chip" data-preset="next30">⚡ Sonraki 30 sn</button>
-        </div>
-
-        <div class="clip-trimmer-actions">
-          <button class="clip-preview-play-btn" id="clip-trimmer-preview-btn" title="Seçilen aralığı YouTube oynatıcıda oynat">
-            ▶️ Önizle
+        <div class="clip-actions-row">
+          <button class="clip-btn-preview" id="clip-trimmer-preview-btn" title="Önizle">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span>Önizle</span>
           </button>
-          <button class="clip-confirm-copy-btn" id="clip-trimmer-copy-btn">
+          <button class="clip-btn-primary" id="clip-trimmer-copy-btn">
             ${ICONS.bolt}
-            <span>Panoya Kopyala (Ctrl+V)</span>
+            <span>Panoya Kopyala</span>
+            <span class="clip-kbd">Ctrl+V</span>
           </button>
         </div>
       </div>
@@ -548,52 +526,53 @@
     const sliderStart = overlay.querySelector("#clip-slider-start");
     const sliderEnd = overlay.querySelector("#clip-slider-end");
     const highlight = overlay.querySelector("#clip-timeline-hl");
+    const labelStart = overlay.querySelector("#clip-label-start");
+    const labelEnd = overlay.querySelector("#clip-label-end");
+    const labelCur = overlay.querySelector("#clip-label-cur");
+    const durPill = overlay.querySelector("#clip-dur-pill");
     const startValInput = overlay.querySelector("#clip-start-val");
     const endValInput = overlay.querySelector("#clip-end-val");
-    const durStatusRow = overlay.querySelector("#clip-dur-status");
-    const durText = overlay.querySelector("#clip-dur-text");
-    const durBadge = overlay.querySelector("#clip-dur-badge");
-    const syncStartBtn = overlay.querySelector("#clip-sync-start-btn");
-    const syncEndBtn = overlay.querySelector("#clip-sync-end-btn");
+    const syncNowBtn = overlay.querySelector("#clip-sync-now-btn");
     const previewBtn = overlay.querySelector("#clip-trimmer-preview-btn");
     const copyBtn = overlay.querySelector("#clip-trimmer-copy-btn");
-    const curTimeDisplay = overlay.querySelector("#clip-cur-time-display");
 
     function updateRangeUI(startSec, endSec) {
-      if (startSec > endSec) {
-        startSec = endSec - 1;
-        if (startSec < 0) startSec = 0;
+      if (startSec >= endSec) {
+        startSec = Math.max(0, endSec - 1);
       }
-      const dur = endSec - startSec;
+      const dur = Math.round(endSec - startSec);
 
       sliderStart.value = startSec;
       sliderEnd.value = endSec;
 
       const leftPct = (startSec / totalDuration) * 100;
-      const widthPct = Math.max(0.5, ((endSec - startSec) / totalDuration) * 100);
+      const widthPct = Math.max(1, ((endSec - startSec) / totalDuration) * 100);
       highlight.style.left = `${leftPct}%`;
       highlight.style.width = `${widthPct}%`;
 
-      startValInput.value = formatSecondsToTime(startSec);
-      endValInput.value = formatSecondsToTime(endSec);
+      const sText = formatSecondsToTime(startSec);
+      const eText = formatSecondsToTime(endSec);
 
-      durText.textContent = `⏱️ Seçilen Süre: ${Math.round(dur)} sn (${formatSecondsToTime(dur)})`;
+      labelStart.textContent = sText;
+      labelEnd.textContent = eText;
+      startValInput.value = sText;
+      endValInput.value = eText;
 
+      durPill.textContent = `${dur} sn`;
       if (dur > 60) {
-        durStatusRow.className = "clip-duration-status-row pro-warning";
-        durBadge.textContent = "⭐ 1 dk üstü (CLIP PRO Gerekir)";
+        durPill.className = "clip-trimmer-dur-pill is-pro";
+        durPill.textContent = `${dur} sn (PRO)`;
       } else {
-        durStatusRow.className = "clip-duration-status-row";
-        durBadge.textContent = "✓ WhatsApp / Discord Hızlı Kopyalama";
+        durPill.className = "clip-trimmer-dur-pill";
       }
     }
 
     updateRangeUI(initialStart, initialEnd);
 
-    // Live sync with player time if playing
+    // Live update current time label
     const timeInterval = setInterval(() => {
       if (videoEl && !isNaN(videoEl.currentTime)) {
-        curTimeDisplay.textContent = `🔴 Oynatma: ${formatSecondsToTime(Math.floor(videoEl.currentTime))}`;
+        labelCur.textContent = `Şu an: ${formatSecondsToTime(Math.floor(videoEl.currentTime))}`;
       }
     }, 500);
 
@@ -635,46 +614,20 @@
       updateRangeUI(s, e);
     });
 
-    syncStartBtn.addEventListener("click", () => {
-      if (videoEl && !isNaN(videoEl.currentTime)) {
-        let s = Math.floor(videoEl.currentTime);
-        let e = parseFloat(sliderEnd.value);
-        if (s >= e) e = Math.min(totalDuration, s + 30);
-        updateRangeUI(s, e);
-      }
+    syncNowBtn.addEventListener("click", () => {
+      const now = (videoEl && !isNaN(videoEl.currentTime)) ? Math.floor(videoEl.currentTime) : 0;
+      const s = Math.max(0, now);
+      const e = Math.min(totalDuration, s + 30);
+      updateRangeUI(s, e);
     });
 
-    syncEndBtn.addEventListener("click", () => {
-      if (videoEl && !isNaN(videoEl.currentTime)) {
-        let e = Math.floor(videoEl.currentTime);
-        let s = parseFloat(sliderStart.value);
-        if (e <= s) s = Math.max(0, e - 30);
-        updateRangeUI(s, e);
-      }
-    });
-
-    // Preset chips
-    overlay.querySelectorAll(".clip-preset-chip").forEach(chip => {
+    // Preset chips (15s, 30s, 60s)
+    overlay.querySelectorAll(".clip-chip").forEach(chip => {
       chip.addEventListener("click", () => {
-        const type = chip.getAttribute("data-preset");
+        const sec = parseInt(chip.getAttribute("data-preset"), 10) || 30;
         const now = (videoEl && !isNaN(videoEl.currentTime)) ? Math.floor(videoEl.currentTime) : parseFloat(sliderStart.value);
-        let s = 0;
-        let e = 30;
-
-        if (type === "prev15") {
-          s = Math.max(0, now - 15);
-          e = now;
-        } else if (type === "prev30") {
-          s = Math.max(0, now - 30);
-          e = now;
-        } else if (type === "prev60") {
-          s = Math.max(0, now - 60);
-          e = now;
-        } else if (type === "next30") {
-          s = now;
-          e = Math.min(totalDuration, now + 30);
-        }
-
+        const s = Math.max(0, now - sec);
+        const e = now > s ? now : Math.min(totalDuration, s + sec);
         updateRangeUI(s, e);
       });
     });
@@ -692,12 +645,12 @@
 
       videoEl.currentTime = s;
       videoEl.play();
-      previewBtn.textContent = "⏸️ Oynatılıyor...";
+      previewBtn.innerHTML = `<span>Durdur</span>`;
 
       previewCheckHandler = () => {
         if (videoEl.currentTime >= e) {
           videoEl.pause();
-          previewBtn.textContent = "▶️ Önizle";
+          previewBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>Önizle</span>`;
           videoEl.removeEventListener("timeupdate", previewCheckHandler);
           previewCheckHandler = null;
         }
@@ -705,7 +658,7 @@
       videoEl.addEventListener("timeupdate", previewCheckHandler);
     });
 
-    // Copy to Clipboard Action
+    // Copy Action
     copyBtn.addEventListener("click", async () => {
       const s = parseTimeToSeconds(startValInput.value);
       const e = parseTimeToSeconds(endValInput.value);
@@ -714,9 +667,6 @@
         showDynamicIslandMessage("⚠️ Bitiş zamanı başlangıçtan büyük olmalıdır.");
         return;
       }
-
-      copyBtn.disabled = true;
-      copyBtn.innerHTML = `${ICONS.spinner} <span>Kırpılıyor ve Hazırlanıyor...</span>`;
 
       cleanupModal();
       triggerCapture(sourceBtn || copyBtn, videoEl, "youtube", exactUrl, s, e);

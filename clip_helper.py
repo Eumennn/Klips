@@ -28,6 +28,7 @@ import tempfile
 import urllib.parse
 import urllib.request
 import time
+import re
 import ctypes
 from ctypes import wintypes
 
@@ -107,8 +108,8 @@ def ensure_whatsapp_compatible(file_path):
     """
     Ensures video is 100% compatible with WhatsApp Web / Desktop on Windows:
     - Codec: H.264 (avc1)
-    - Audio: AAC (mp4a)
-    - Pixel format: yuv420p
+    - Audio: AAC (mp4a) — If video has no audio (e.g. muted Instagram Reel), adds a silent stereo track
+    - Pixel format: yuv420p with even dimensions (width/height divisible by 2)
     - moov atom at start: +faststart (0.1s instant load in WhatsApp Ctrl+V)
     """
     if not FFMPEG_PATH or not os.path.exists(file_path):
@@ -118,6 +119,7 @@ def ensure_whatsapp_compatible(file_path):
         probe = subprocess.run([FFMPEG_PATH, "-i", file_path], capture_output=True, text=True, errors="ignore")
         stderr = probe.stderr or ""
 
+        has_audio = "Audio:" in stderr
         is_h264 = "Video: h264" in stderr
         is_aac = "Audio: aac" in stderr
         is_yuv420p = "yuv420p" in stderr and "yuv420p10" not in stderr
@@ -125,6 +127,7 @@ def ensure_whatsapp_compatible(file_path):
         base_dir, base_name = os.path.split(file_path)
         out_path = os.path.join(base_dir, f"wa_{base_name}")
 
+        # If already fully compliant H.264 + AAC + yuv420p, just faststart
         if is_h264 and is_aac and is_yuv420p:
             cmd = [
                 FFMPEG_PATH, "-y", "-i", file_path,
@@ -132,12 +135,26 @@ def ensure_whatsapp_compatible(file_path):
                 "-movflags", "+faststart",
                 out_path
             ]
-        else:
-            print(f"⚡ [CLIP] Transcoding to universal WhatsApp H.264 format...")
+        elif has_audio:
+            # Transcode video to H.264 yuv420p and audio to AAC
             cmd = [
                 FFMPEG_PATH, "-y", "-i", file_path,
+                "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",
                 "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "ultrafast", "-crf", "22",
                 "-c:a", "aac", "-b:a", "128k",
+                "-movflags", "+faststart",
+                out_path
+            ]
+        else:
+            # Video only (e.g. muted Instagram Reel)! Add silent AAC audio so WhatsApp doesn't reject it
+            print("⚡ [CLIP] Video has no audio track, generating silent stereo AAC for WhatsApp...")
+            cmd = [
+                FFMPEG_PATH, "-y", "-i", file_path,
+                "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+                "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "ultrafast", "-crf", "22",
+                "-c:a", "aac", "-b:a", "128k",
+                "-shortest",
                 "-movflags", "+faststart",
                 out_path
             ]
@@ -155,26 +172,38 @@ def ensure_whatsapp_compatible(file_path):
     return file_path
 
 def download_direct_stream(video_url, filename_prefix="clip"):
-    """Downloads direct progressive stream URL (e.g. from TikTok CDN)"""
+    """Downloads direct progressive stream URL (e.g. from Instagram CDN or TikTok CDN)"""
     try:
+        # Strip bytestart and byteend so Facebook/Instagram CDN gives the FULL video from byte 0
+        clean_url = video_url
+        clean_url = re.sub(r'[?&]bytestart=\d+', '', clean_url)
+        clean_url = re.sub(r'[?&]byteend=\d+', '', clean_url)
+
+        is_instagram = any(k in clean_url.lower() for k in ["instagram", "fbcdn", "cdninstagram"])
+        is_tiktok = any(k in clean_url.lower() for k in ["tiktok", "byteoversea"])
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+            "Range": "bytes=0-"
+        }
+        if is_instagram:
+            headers["Referer"] = "https://www.instagram.com/"
+            headers["Origin"] = "https://www.instagram.com"
+        elif is_tiktok:
+            headers["Referer"] = "https://www.tiktok.com/"
+
         clean_name = f"{filename_prefix}_{int(time.time())}.mp4"
         target_file = os.path.join(CLIP_DIR, clean_name)
-        req = urllib.request.Request(
-            video_url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-                "Referer": "https://www.tiktok.com/",
-                "Range": "bytes=0-"
-            }
-        )
-        with urllib.request.urlopen(req, timeout=15) as resp, open(target_file, "wb") as out:
+
+        req = urllib.request.Request(clean_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=25) as resp, open(target_file, "wb") as out:
             while chunk := resp.read(65536):
                 out.write(chunk)
 
         if os.path.exists(target_file) and os.path.getsize(target_file) > 10000:
             final_file = ensure_whatsapp_compatible(target_file)
             copy_file_to_windows_clipboard(final_file)
-            print(f"⚡ [CLIP] Direct stream downloaded & copied: {final_file}")
+            print(f"⚡ [CLIP] Direct stream downloaded & copied: {final_file} ({os.path.getsize(final_file)} bytes)")
             return {"path": final_file}
     except Exception as e:
         print(f"⚠️ [CLIP] Direct stream download failed: {e}")
