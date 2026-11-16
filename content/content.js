@@ -192,77 +192,129 @@
   }
 
   /**
+   * Helper: Check if element is inside TikTok comments drawer or list
+   */
+  function isInsideComments(el) {
+    if (!el) return false;
+    let cur = el;
+    while (cur && cur !== document.body) {
+      const cls = (cur.className || "").toString();
+      const id = (cur.id || "").toString();
+      const e2e = (cur.getAttribute("data-e2e") || "").toString();
+      const role = (cur.getAttribute("role") || "").toString();
+      const aria = (cur.getAttribute("aria-label") || "").toString();
+      if (/comment|reply|yorum|tabpanel/i.test(cls + " " + id + " " + e2e + " " + role + " " + aria)) {
+        return true;
+      }
+      cur = cur.parentElement;
+    }
+    return false;
+  }
+
+  /**
+   * Helper: Check if an element is a real TikTok standalone vertical navigation arrow button
+   */
+  function isStandaloneArrowButton(el) {
+    if (!el) return false;
+    // 1. Must NOT contain text or numbers (e.g. comment like counts "6", "19", "479")
+    if (el.innerText && el.innerText.trim() !== "") return false;
+    if (el.textContent && el.textContent.trim() !== "") return false;
+    if (el.parentElement) {
+      const pText = el.parentElement.innerText || el.parentElement.textContent || "";
+      if (/\d+/.test(pText.trim())) return false;
+    }
+
+    // 2. Must contain an SVG
+    const svg = el.querySelector("svg");
+    if (!svg) return false;
+
+    // 3. Must NEVER be inside comments, search bar, header, form, or video actions
+    if (isInsideComments(el)) return false;
+    if (el.closest("header, nav, form, [data-e2e*='search'], [class*='search' i], [data-e2e*='video-actions']")) {
+      return false;
+    }
+
+    // 4. Must not be Like, Bookmark, Share, Audio/Mute, Play/Pause
+    const allAttrs = ((el.className || "") + " " + (el.getAttribute("data-e2e") || "") + " " + (el.getAttribute("aria-label") || "") + " " + (el.title || "")).toLowerCase();
+    if (/like|beğen|comment|yorum|bookmark|kaydet|favorite|favori|share|paylaş|heart|mute|ses|volume|play|oynat/i.test(allAttrs)) {
+      return false;
+    }
+
+    // 5. Must be roughly circular/square (width & height between 24px and 68px)
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 24 || rect.width > 68 || rect.height < 24 || rect.height > 68) {
+      return false;
+    }
+    if (Math.abs(rect.width - rect.height) > 12) {
+      return false;
+    }
+
+    // 6. Must be in the main vertical view area (between top 100px and bottom 60px)
+    if (rect.top < 100 || rect.bottom > window.innerHeight - 30) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
    * Helper: Find the TikTok vertical navigation up/down arrow buttons
-   * Strictly matches the stacked ^ and v buttons beside the video player (inside user-specified green area)
+   * Strictly matches the real arrow buttons beside the video player (never comment likes!)
    */
   function findTikTokNavTarget() {
-    // 1. First check explicit TikTok data-e2e arrow buttons
-    const upBtn = document.querySelector("button[data-e2e='arrow-up'], button[data-e2e='browse-up'], button[data-e2e='swipe-up'], button[data-e2e='video-arrow-up'], button[data-e2e*='arrow-up']");
-    if (upBtn && !upBtn.closest("header, nav, form, [data-e2e*='comment'], [class*='comment' i], [data-e2e*='search']")) {
-      return upBtn;
-    }
+    // 1. Check all explicit arrow button selectors on TikTok
+    const arrowSelectors = [
+      "button[data-e2e='arrow-up']",
+      "button[data-e2e='arrow-down']",
+      "button[data-e2e*='arrow-up']",
+      "button[data-e2e*='arrow-down']",
+      "button[data-e2e*='browse-up']",
+      "button[data-e2e*='browse-down']",
+      "button[data-e2e*='swipe-up']",
+      "button[data-e2e*='swipe-down']",
+      "button[data-e2e*='video-arrow']",
+      "button[data-e2e*='arrow']",
+      "div[role='button'][data-e2e*='arrow']",
+      "button[aria-label*='previous' i]",
+      "button[aria-label*='next' i]",
+      "button[aria-label*='önceki' i]",
+      "button[aria-label*='sonraki' i]",
+      "button[aria-label*='yukarı' i]",
+      "button[aria-label*='aşağı' i]",
+      "[class*='ButtonVideoArrow']",
+      "[class*='ArrowButton']",
+      "[class*='VideoArrow']",
+      "[class*='DivArrowItem']",
+      "[class*='ArrowItem']"
+    ];
 
-    const downBtn = document.querySelector("button[data-e2e='arrow-down'], button[data-e2e='browse-down'], button[data-e2e='swipe-down'], button[data-e2e='video-arrow-down'], button[data-e2e*='arrow-down']");
-    if (downBtn && !downBtn.closest("header, nav, form, [data-e2e*='comment'], [class*='comment' i], [data-e2e*='search']")) {
-      const prev = downBtn.previousElementSibling;
-      if (prev && (prev.tagName === "BUTTON" || prev.getAttribute("role") === "button")) {
-        return prev;
+    const matched = [];
+    for (const sel of arrowSelectors) {
+      for (const el of document.querySelectorAll(sel)) {
+        if (isStandaloneArrowButton(el) && !matched.includes(el)) {
+          matched.push(el);
+        }
       }
-      return downBtn;
     }
 
-    // 2. The Stacked Vertical Arrow Pair: Find two circular buttons stacked vertically with same X coordinate
+    if (matched.length > 0) {
+      // Sort by top ascending -> topmost is up arrow (or down arrow if only one)
+      matched.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+      return matched[0];
+    }
+
+    // 2. Scan all buttons on page for circular standalone arrow buttons
     const allBtns = Array.from(document.querySelectorAll("button, div[role='button']"));
-    const candidates = [];
-
+    const arrowCandidates = [];
     for (const btn of allBtns) {
-      if (btn.classList.contains("clip-tiktok-action-wrapper") || btn.classList.contains("clip-tiktok-fixed-btn")) continue;
-      // Must contain an SVG
-      if (!btn.querySelector("svg")) continue;
-
-      // Must not be in comments, search, header, form, or video actions (like/comment/share)
-      if (btn.closest("header, nav, form, [data-e2e*='comment'], [class*='comment' i], [data-e2e*='search'], [class*='search' i], [data-e2e*='video-actions']")) {
-        continue;
-      }
-
-      const text = ((btn.getAttribute("data-e2e") || "") + " " + (btn.getAttribute("aria-label") || "") + " " + btn.className + " " + (btn.title || "")).toLowerCase();
-      if (/like|beğen|comment|yorum|bookmark|kaydet|favorite|favori|share|paylaş|search|ara|volume|ses|mute|play|oynat/i.test(text)) {
-        continue;
-      }
-
-      const rect = btn.getBoundingClientRect();
-      if (rect.width >= 24 && rect.width <= 64 && rect.height >= 24 && rect.height <= 64) {
-        if (rect.top >= 100 && rect.bottom <= window.innerHeight - 30) {
-          candidates.push({ btn, rect });
-        }
+      if (isStandaloneArrowButton(btn)) {
+        arrowCandidates.push(btn);
       }
     }
 
-    // Pair matching: two buttons with nearly identical X coordinate and vertically adjacent
-    for (let i = 0; i < candidates.length; i++) {
-      for (let j = 0; j < candidates.length; j++) {
-        if (i === j) continue;
-        const b1 = candidates[i];
-        const b2 = candidates[j];
-        if (b1.rect.top < b2.rect.top) {
-          const xDiff = Math.abs(b1.rect.left - b2.rect.left);
-          const yDiff = b2.rect.top - b1.rect.bottom;
-          if (xDiff <= 10 && yDiff >= -4 && yDiff <= 28) {
-            // b1 is the UP arrow (topmost in the pair)!
-            return b1.btn;
-          }
-        }
-      }
-    }
-
-    // 3. Arrow Containers
-    const arrowContainers = document.querySelectorAll(
-      "div[class*='ArrowContainer'], div[class*='DivArrowContainer'], div[class*='NavigationContainer'], div[class*='DivNavigation'], div[class*='FeedNavigation']"
-    );
-    for (const container of arrowContainers) {
-      if (container.closest("header, nav, form, [data-e2e*='comment'], [class*='comment' i], [data-e2e*='search']")) continue;
-      const firstBtn = container.querySelector("button, div[role='button']");
-      if (firstBtn) return firstBtn;
+    if (arrowCandidates.length > 0) {
+      arrowCandidates.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+      return arrowCandidates[0];
     }
 
     return null;
@@ -316,6 +368,19 @@
         btnWrapper.className = "clip-tiktok-action-wrapper clip-tiktok-arrow-nav-btn";
         btnWrapper.title = "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)";
         btnWrapper.innerHTML = `<div class="clip-tiktok-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>`;
+
+        // If navArrow is absolutely positioned, match its positioning
+        try {
+          const comp = window.getComputedStyle(navArrow);
+          if (comp.position === "absolute") {
+            btnWrapper.style.position = "absolute";
+            btnWrapper.style.left = navArrow.style.left || (navArrow.offsetLeft + "px");
+            const bottomVal = parseFloat(comp.bottom);
+            if (!isNaN(bottomVal)) {
+              btnWrapper.style.bottom = (bottomVal + navArrow.offsetHeight + 8) + "px";
+            }
+          }
+        } catch (e) {}
 
         btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
         btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
