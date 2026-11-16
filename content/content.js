@@ -36,44 +36,157 @@
 
 
   /**
-   * Helper: Extract exact TikTok video URL or 19-digit ID from container
+   * Helper: Find the actively playing / centered TikTok video element
    */
-  function findTikTokVideoUrl(itemContainer) {
-    if (!itemContainer) return window.location.href;
+  function getActiveTikTokVideoElement() {
+    const videos = Array.from(document.querySelectorAll("video"));
+    if (videos.length === 0) return null;
+    if (videos.length === 1) return videos[0];
 
-    // 1. Check direct video anchor
-    const videoAnchor = itemContainer.querySelector("a[href*='/video/']");
-    if (videoAnchor && videoAnchor.href) return videoAnchor.href;
+    // Priority 1: video that is actively unpaused and playing
+    const playing = videos.find(v => !v.paused && v.readyState >= 2 && v.currentTime > 0);
+    if (playing) return playing;
 
-    // 2. Check all anchors with /video/ in href
-    const allLinks = itemContainer.querySelectorAll("a[href]");
-    for (const a of allLinks) {
-      if (a.href && a.href.includes("/video/")) {
-        return a.href;
+    // Priority 2: video closest to vertical center of viewport
+    const centerY = window.innerHeight / 2;
+    let best = null;
+    let minDiff = Infinity;
+    for (const v of videos) {
+      const rect = v.getBoundingClientRect();
+      if (rect.height < 50 || rect.width < 50) continue;
+      const mid = rect.top + rect.height / 2;
+      const diff = Math.abs(mid - centerY);
+      if (diff < minDiff) {
+        minDiff = diff;
+        best = v;
       }
     }
+    return best || videos[0];
+  }
 
-    // 3. Regex match for 18-20 digit TikTok video ID in container's HTML
-    try {
-      const html = itemContainer.innerHTML;
-      const match = html.match(/\/video\/(\d{18,20})/);
-      if (match && match[1]) {
-        return `https://www.tiktok.com/@tiktok/video/${match[1]}`;
-      }
-      const idMatch = html.match(/data-video-id="(\d{18,20})"/);
-      if (idMatch && idMatch[1]) {
-        return `https://www.tiktok.com/@tiktok/video/${idMatch[1]}`;
-      }
-      const wrapperMatch = html.match(/xgwrapper-\d+-(\d{18,20})/);
-      if (wrapperMatch && wrapperMatch[1]) {
-        return `https://www.tiktok.com/@tiktok/video/${wrapperMatch[1]}`;
-      }
-    } catch (e) {}
-
-    // 4. Standalone video page
+  /**
+   * Helper: Extract exact TikTok video URL or 19-digit ID from container or active video
+   */
+  function findTikTokVideoUrl(targetEl) {
+    // 1. Direct standalone video URL in address bar
     if (window.location.href.includes("/video/")) {
       return window.location.href;
     }
+
+    // 2. Check all inputs/textareas on page (e.g. TikTok share/copy link input in right sidebar)
+    const allInputs = document.querySelectorAll("input, textarea");
+    for (const inp of allInputs) {
+      const val = (inp.value || inp.getAttribute("value") || "").trim();
+      if (val.includes("tiktok.com") && val.includes("/video/")) {
+        const m = val.match(/https?:\/\/(?:www\.)?tiktok\.com\/@[^/]+\/video\/(\d{18,20})/);
+        if (m) return m[0];
+        const m2 = val.match(/\/video\/(\d{18,20})/);
+        if (m2) return `https://www.tiktok.com/@tiktok/video/${m2[1]}`;
+      }
+    }
+
+    // 3. Find active playing video and inspect its hierarchy
+    const activeVideo = getActiveTikTokVideoElement();
+    const candidateContainers = [
+      targetEl ? targetEl.closest("article, [data-e2e='recommend-list-item-container'], [data-e2e='browse-video-container'], [class*='DivItemContainer'], [class*='ItemContainer']") : null,
+      activeVideo ? activeVideo.closest("article, [data-e2e='recommend-list-item-container'], [data-e2e='browse-video-container'], [class*='DivItemContainer'], [class*='ItemContainer'], section") : null,
+      activeVideo ? activeVideo.parentElement : null
+    ];
+
+    for (const container of candidateContainers) {
+      if (!container) continue;
+
+      // 3a. Check direct video anchors inside container
+      const videoAnchor = container.querySelector("a[href*='/video/']");
+      if (videoAnchor && videoAnchor.href) return videoAnchor.href;
+
+      // 3b. Check all anchors inside container
+      for (const a of container.querySelectorAll("a[href]")) {
+        if (a.href && a.href.includes("/video/")) return a.href;
+      }
+
+      // 3c. Check HTML attributes & regex for 18-20 digit TikTok ID
+      try {
+        const html = container.outerHTML;
+        const match = html.match(/\/video\/(\d{18,20})/);
+        if (match && match[1]) {
+          const userA = container.querySelector("a[href*='/@']");
+          const uMatch = userA ? userA.href.match(/@([^/?]+)/) : null;
+          const uName = uMatch ? `@${uMatch[1]}` : "@tiktok";
+          return `https://www.tiktok.com/${uName}/video/${match[1]}`;
+        }
+        const idMatch = html.match(/data-video-id="(\d{18,20})"/);
+        if (idMatch && idMatch[1]) {
+          return `https://www.tiktok.com/@tiktok/video/${idMatch[1]}`;
+        }
+        const xgMatch = html.match(/xgwrapper-\d+-(\d{18,20})/);
+        if (xgMatch && xgMatch[1]) {
+          return `https://www.tiktok.com/@tiktok/video/${xgMatch[1]}`;
+        }
+      } catch (e) {}
+
+      // 3d. Inspect React Fiber on activeVideo / container
+      try {
+        let cur = activeVideo || container;
+        for (let step = 0; step < 8 && cur; step++) {
+          const fiberKey = Object.keys(cur).find(k => k.startsWith("__reactFiber$") || k.startsWith("__reactProps$"));
+          if (fiberKey && cur[fiberKey]) {
+            let f = cur[fiberKey];
+            for (let depth = 0; depth < 6 && f; depth++) {
+              const props = f.memoizedProps || f.props;
+              if (props) {
+                const s = JSON.stringify(props, (k, v) => (typeof v === 'string' || typeof v === 'number' ? v : (typeof v === 'object' && v !== null && k !== 'children' ? v : undefined)));
+                const m = s && (s.match(/"(?:id|itemId|videoId)":"(\d{18,20})"/i) || s.match(/\/video\/(\d{18,20})/));
+                if (m && m[1]) {
+                  return `https://www.tiktok.com/@tiktok/video/${m[1]}`;
+                }
+              }
+              f = f.return;
+            }
+          }
+          cur = cur.parentElement;
+        }
+      } catch (e) {}
+    }
+
+    // 4. Check all visible anchors on screen with /video/ closest to viewport center
+    const allVideoAnchors = Array.from(document.querySelectorAll("a[href*='/video/']"));
+    if (allVideoAnchors.length > 0) {
+      const centerY = window.innerHeight / 2;
+      let bestA = null;
+      let minDiff = Infinity;
+      for (const a of allVideoAnchors) {
+        const r = a.getBoundingClientRect();
+        const diff = Math.abs(r.top + r.height / 2 - centerY);
+        if (diff < minDiff) {
+          minDiff = diff;
+          bestA = a;
+        }
+      }
+      if (bestA && bestA.href) return bestA.href;
+    }
+
+    // 5. Check rehydration state script
+    try {
+      const script = document.getElementById("__UNIVERSAL_DATA_FOR_REHYDRATION__") || document.getElementById("SIGI_STATE");
+      if (script && script.textContent) {
+        const ids = Array.from(script.textContent.matchAll(/"(?:id|itemId)":"(\d{18,20})"/g), m => m[1]);
+        if (ids.length > 0) {
+          return `https://www.tiktok.com/@tiktok/video/${ids[0]}`;
+        }
+      }
+    } catch (e) {}
+
+    // 6. Regex search in body HTML
+    try {
+      const bodyHtml = document.body.innerHTML;
+      const bMatch = bodyHtml.match(/https?:\/\/(?:www\.)?tiktok\.com\/@[^"'\s<>]+\/video\/(\d{18,20})/);
+      if (bMatch) return bMatch[0];
+      const anyMatch = bodyHtml.match(/\/video\/(\d{18,20})/);
+      if (anyMatch && anyMatch[1]) {
+        return `https://www.tiktok.com/@tiktok/video/${anyMatch[1]}`;
+      }
+    } catch (e) {}
 
     return window.location.href;
   }
@@ -126,21 +239,25 @@
       if (firstBtn) return firstBtn;
     }
 
-    // Deep heuristic: scan circular buttons on the right side of the screen
+    // Heuristic: Circular navigation arrow buttons on the far right of the screen
     const allButtons = document.querySelectorAll("button, div[role='button']");
-    const rightThreshold = window.innerWidth * 0.65;
+    const rightThreshold = window.innerWidth * 0.70;
     const rightButtons = [];
 
     for (const btn of allButtons) {
-      if (btn.closest("[data-e2e*='comment'], [class*='Comment'], [class*='comment'], header, nav, [data-e2e*='search'], form, .clip-tiktok-action-wrapper")) continue;
+      if (btn.closest("[data-e2e*='comment'], [class*='Comment'], [class*='comment'], header, nav, [data-e2e*='search'], form, [data-e2e*='video-actions'], .clip-tiktok-action-wrapper")) continue;
       if (btn.classList.contains("clip-tiktok-action-wrapper")) continue;
+
+      // Strictly ignore Like, Comment, Bookmark, Share icons
+      const btnText = ((btn.getAttribute("data-e2e") || "") + " " + (btn.getAttribute("aria-label") || "") + " " + btn.className).toLowerCase();
+      if (/like|beğen|comment|yorum|bookmark|kaydet|favorite|share|paylaş|search|ara/i.test(btnText)) continue;
 
       const svg = btn.querySelector("svg");
       if (!svg) continue;
 
       const rect = btn.getBoundingClientRect();
       if (rect.width >= 24 && rect.width <= 70 && rect.height >= 24 && rect.height <= 70) {
-        if (rect.left >= rightThreshold && rect.top > 80 && rect.bottom < window.innerHeight - 30) {
+        if (rect.left >= rightThreshold && rect.top > 120 && rect.bottom < window.innerHeight - 50) {
           rightButtons.push({ btn, top: rect.top });
         }
       }
@@ -179,10 +296,10 @@
       "[class*='Header' i] .clip-tiktok-action-wrapper"
     ).forEach(el => el.remove());
 
-    // Also sweep any buttons placed in the top 85px (search bar zone)
-    document.querySelectorAll(".clip-tiktok-action-wrapper").forEach(el => {
+    // Also sweep any buttons placed in the top 90px (search bar zone)
+    document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-fixed-btn").forEach(el => {
       const r = el.getBoundingClientRect();
-      if (r.top < 85 && r.left > window.innerWidth * 0.15 && r.left < window.innerWidth * 0.85) {
+      if (r.top < 90) {
         el.remove();
       }
     });
@@ -206,16 +323,17 @@
         btnWrapper.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          const videoEl = document.querySelector("video");
+          const videoEl = getActiveTikTokVideoElement() || document.querySelector("video");
           const exactUrl = findTikTokVideoUrl(parent.closest("article, [class*='ItemContainer']") || document.body);
+          console.log("⚡ [CLIP] TikTok captured exact URL:", exactUrl);
           triggerCapture(btnWrapper, videoEl, "tiktok", exactUrl);
         });
 
-        // Insert directly ABOVE the up arrow
+        // Insert directly ABOVE the navigation arrow
         navArrow.insertAdjacentElement("beforebegin", btnWrapper);
       }
 
-      // If arrow button is present, make sure no rogue buttons exist elsewhere (especially search bar or like button)
+      // If arrow button is present, make sure no rogue buttons exist elsewhere
       document.querySelectorAll(".clip-tiktok-action-wrapper:not(.clip-tiktok-arrow-nav-btn)").forEach(el => el.remove());
       return;
     }
@@ -230,7 +348,8 @@
       fixedBtn.style.cssText = `
         position: fixed !important;
         right: 20px !important;
-        top: 42% !important;
+        top: 45% !important;
+        transform: translateY(-50%) !important;
         z-index: 2147483647 !important;
         cursor: pointer !important;
       `;
@@ -239,8 +358,9 @@
       fixedBtn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const videoEl = document.querySelector("video");
+        const videoEl = getActiveTikTokVideoElement() || document.querySelector("video");
         const exactUrl = findTikTokVideoUrl(document.body);
+        console.log("⚡ [CLIP] TikTok captured exact URL (fallback):", exactUrl);
         triggerCapture(fixedBtn, videoEl, "tiktok", exactUrl);
       });
       document.body.appendChild(fixedBtn);

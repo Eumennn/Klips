@@ -98,8 +98,13 @@ if (chrome.webRequest && chrome.webRequest.onBeforeRequest) {
     {
       urls: [
         "*://*.tiktokcdn.com/*",
+        "*://*.tiktokcdn-us.com/*",
+        "*://*.tiktokcdn-eu.com/*",
         "*://*.tiktokv.com/*",
+        "*://*.tiktokv.us/*",
         "*://*.byteoversea.com/*",
+        "*://*.ibytedtos.com/*",
+        "*://*.myqcloud.com/*",
         "*://*.cdninstagram.com/*",
         "*://*.fbcdn.net/*",
         "*://*.twimg.com/*"
@@ -165,6 +170,12 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
             clipboardCopied: true,
             platform: platform,
             sourceUrl: cleanUrl
+          };
+        }
+        if (data && !data.success && data.error) {
+          return {
+            success: false,
+            error: data.error
           };
         }
       }

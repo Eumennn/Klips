@@ -43,13 +43,13 @@ PORT = 48123
 CLIP_DIR = os.path.join(tempfile.gettempdir(), "CLIP")
 os.makedirs(CLIP_DIR, exist_ok=True)
 
-def cleanup_temp_files(max_age_seconds=300, max_files=2, max_total_bytes=40 * 1024 * 1024):
+def cleanup_temp_files(max_age_seconds=600, max_files=5, max_total_bytes=120 * 1024 * 1024):
     """
     Automatic Temp Cleaner:
     Guarantees zero PC disk buildup by automatically sweeping old temporary video files.
-    - Preserves the active clip so user has ample time (5 min) to paste (Ctrl+V) into WhatsApp/Discord.
-    - Limits total cached clips to max 2 files and 40 MB.
-    - Automatically purges anything older than 5 minutes.
+    - Preserves the active clip so user has ample time (10 min) to paste (Ctrl+V) into WhatsApp/Discord.
+    - Limits total cached clips to max 5 files and 120 MB.
+    - Automatically purges anything older than 10 minutes.
     """
     if not os.path.exists(CLIP_DIR):
         return
@@ -675,7 +675,7 @@ def main():
     print(f"🚀 Port: http://127.0.0.1:{PORT}")
     print(f"📂 Dizin: {CLIP_DIR}")
     print(f"🎞️ FFmpeg: {'Aktif (WhatsApp H.264 / AAC + faststart)' if FFMPEG_PATH else 'Pasif'}")
-    print("🧹 Otomatik Temizleme: Aktif (Maks 4 klip / 80MB / 10 dk ömür)")
+    print("🧹 Otomatik Temizleme: Aktif (Maks 5 klip / 120MB / 10 dk ömür)")
     print("=" * 60)
     http.server.HTTPServer.allow_reuse_address = True
     server = http.server.HTTPServer(("127.0.0.1", PORT), ClipHTTPHandler)
