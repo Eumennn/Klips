@@ -192,104 +192,77 @@
   }
 
   /**
-   * Helper: Find the TikTok vertical navigation up/down arrow buttons on the right side
+   * Helper: Find the TikTok vertical navigation up/down arrow buttons
+   * Strictly matches the stacked ^ and v buttons beside the video player (inside user-specified green area)
    */
   function findTikTokNavTarget() {
-    const minLeft = window.innerWidth * 0.60; // MUST be on the right side of the screen
-    const minTop = 110;                      // NEVER in the top header or search bar (top < 110px)
-    const maxBottom = window.innerHeight - 30;
+    // 1. First check explicit TikTok data-e2e arrow buttons
+    const upBtn = document.querySelector("button[data-e2e='arrow-up'], button[data-e2e='browse-up'], button[data-e2e='swipe-up'], button[data-e2e='video-arrow-up'], button[data-e2e*='arrow-up']");
+    if (upBtn && !upBtn.closest("header, nav, form, [data-e2e*='comment'], [class*='comment' i], [data-e2e*='search']")) {
+      return upBtn;
+    }
 
-    function isValidArrowCandidate(el) {
-      if (!el) return false;
-      const rect = el.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return false;
-      // 1. Strict coordinate bounds: Right side ONLY, never in header/search
-      if (rect.left < minLeft || rect.top < minTop || rect.bottom > maxBottom) {
-        return false;
+    const downBtn = document.querySelector("button[data-e2e='arrow-down'], button[data-e2e='browse-down'], button[data-e2e='swipe-down'], button[data-e2e='video-arrow-down'], button[data-e2e*='arrow-down']");
+    if (downBtn && !downBtn.closest("header, nav, form, [data-e2e*='comment'], [class*='comment' i], [data-e2e*='search']")) {
+      const prev = downBtn.previousElementSibling;
+      if (prev && (prev.tagName === "BUTTON" || prev.getAttribute("role") === "button")) {
+        return prev;
+      }
+      return downBtn;
+    }
+
+    // 2. The Stacked Vertical Arrow Pair: Find two circular buttons stacked vertically with same X coordinate
+    const allBtns = Array.from(document.querySelectorAll("button, div[role='button']"));
+    const candidates = [];
+
+    for (const btn of allBtns) {
+      if (btn.classList.contains("clip-tiktok-action-wrapper") || btn.classList.contains("clip-tiktok-fixed-btn")) continue;
+      // Must contain an SVG
+      if (!btn.querySelector("svg")) continue;
+
+      // Must not be in comments, search, header, form, or video actions (like/comment/share)
+      if (btn.closest("header, nav, form, [data-e2e*='comment'], [class*='comment' i], [data-e2e*='search'], [class*='search' i], [data-e2e*='video-actions']")) {
+        continue;
       }
 
-      // 2. Must not be inside search, header, form, or comments
-      if (el.closest("header, nav, form, [data-e2e*='search'], [class*='search' i], [data-e2e*='comment'], [class*='comment' i], [data-e2e*='video-actions']")) {
-        return false;
-      }
-
-      // 3. Must not be an interactive action (Like, Comment, Bookmark, Share, Audio)
-      const text = ((el.getAttribute("data-e2e") || "") + " " + (el.getAttribute("aria-label") || "") + " " + el.className + " " + (el.title || "")).toLowerCase();
+      const text = ((btn.getAttribute("data-e2e") || "") + " " + (btn.getAttribute("aria-label") || "") + " " + btn.className + " " + (btn.title || "")).toLowerCase();
       if (/like|beğen|comment|yorum|bookmark|kaydet|favorite|favori|share|paylaş|search|ara|volume|ses|mute|play|oynat/i.test(text)) {
-        return false;
+        continue;
       }
-
-      return true;
-    }
-
-    // 1. Specific arrow selectors (both Up and Down)
-    const arrowSelectors = [
-      "button[data-e2e='arrow-up']",
-      "button[data-e2e='arrow-down']",
-      "button[data-e2e='arrow-prev']",
-      "button[data-e2e='arrow-next']",
-      "button[data-e2e='browse-up']",
-      "button[data-e2e='browse-down']",
-      "button[data-e2e='browse-arrow-up']",
-      "button[data-e2e='browse-arrow-down']",
-      "button[data-e2e='swipe-up']",
-      "button[data-e2e='swipe-down']",
-      "button[data-e2e='video-arrow-up']",
-      "button[data-e2e='video-arrow-down']",
-      "button[data-e2e*='arrow-up']",
-      "button[data-e2e*='arrow-down']",
-      "button[data-e2e*='browse']",
-      "button[data-e2e*='swipe']",
-      "[class*='ButtonVideoArrow']",
-      "[class*='ArrowButton']",
-      "[class*='ButtonArrow']",
-      "[class*='VideoArrow']",
-      "[class*='DivArrowItem']"
-    ];
-
-    for (const sel of arrowSelectors) {
-      try {
-        const elements = document.querySelectorAll(sel);
-        for (const el of elements) {
-          if (isValidArrowCandidate(el)) {
-            return el;
-          }
-        }
-      } catch (e) {}
-    }
-
-    // 2. Query arrow containers on the right side
-    const arrowContainers = document.querySelectorAll(
-      "div[class*='ArrowContainer'], div[class*='DivArrowContainer'], div[class*='NavigationContainer'], div[class*='DivNavigation'], div[class*='FeedNavigation'], div[data-e2e*='arrow'], div[data-e2e*='navigation']"
-    );
-    for (const container of arrowContainers) {
-      const rect = container.getBoundingClientRect();
-      if (rect.left >= minLeft && rect.top >= minTop) {
-        const btn = container.querySelector("button, div[role='button']");
-        if (isValidArrowCandidate(btn)) {
-          return btn;
-        }
-      }
-    }
-
-    // 3. Scan circular buttons on the far right
-    const allButtons = document.querySelectorAll("button, div[role='button']");
-    const rightArrowButtons = [];
-
-    for (const btn of allButtons) {
-      if (!isValidArrowCandidate(btn)) continue;
 
       const rect = btn.getBoundingClientRect();
-      if (rect.width >= 24 && rect.width <= 70 && rect.height >= 24 && rect.height <= 70) {
-        if (btn.querySelector("svg")) {
-          rightArrowButtons.push({ btn, top: rect.top });
+      if (rect.width >= 24 && rect.width <= 64 && rect.height >= 24 && rect.height <= 64) {
+        if (rect.top >= 100 && rect.bottom <= window.innerHeight - 30) {
+          candidates.push({ btn, rect });
         }
       }
     }
 
-    if (rightArrowButtons.length > 0) {
-      rightArrowButtons.sort((a, b) => a.top - b.top);
-      return rightArrowButtons[0].btn;
+    // Pair matching: two buttons with nearly identical X coordinate and vertically adjacent
+    for (let i = 0; i < candidates.length; i++) {
+      for (let j = 0; j < candidates.length; j++) {
+        if (i === j) continue;
+        const b1 = candidates[i];
+        const b2 = candidates[j];
+        if (b1.rect.top < b2.rect.top) {
+          const xDiff = Math.abs(b1.rect.left - b2.rect.left);
+          const yDiff = b2.rect.top - b1.rect.bottom;
+          if (xDiff <= 10 && yDiff >= -4 && yDiff <= 28) {
+            // b1 is the UP arrow (topmost in the pair)!
+            return b1.btn;
+          }
+        }
+      }
+    }
+
+    // 3. Arrow Containers
+    const arrowContainers = document.querySelectorAll(
+      "div[class*='ArrowContainer'], div[class*='DivArrowContainer'], div[class*='NavigationContainer'], div[class*='DivNavigation'], div[class*='FeedNavigation']"
+    );
+    for (const container of arrowContainers) {
+      if (container.closest("header, nav, form, [data-e2e*='comment'], [class*='comment' i], [data-e2e*='search']")) continue;
+      const firstBtn = container.querySelector("button, div[role='button']");
+      if (firstBtn) return firstBtn;
     }
 
     return null;
@@ -297,11 +270,12 @@
 
   /**
    * 2. TikTok Adapter (Single button strictly ABOVE the vertical navigation arrows on the right)
+   * ONLY active when a video is open/playing during feed scrolling
    */
   function handleTikTok() {
     if (!window.location.hostname.includes("tiktok.com")) return;
 
-    // 1. Immediately remove ANY button inside header, nav, form, search bar
+    // Clean up any stray buttons inside comments, headers, search bars, or old fixed buttons
     document.querySelectorAll(
       "[data-e2e*='comment'] .clip-tiktok-action-wrapper, " +
       "[class*='Comment'] .clip-tiktok-action-wrapper, " +
@@ -311,16 +285,23 @@
       "form .clip-tiktok-action-wrapper, " +
       "[data-e2e*='search'] .clip-tiktok-action-wrapper, " +
       "[class*='search' i] .clip-tiktok-action-wrapper, " +
-      "[class*='Header' i] .clip-tiktok-action-wrapper"
+      "[class*='Header' i] .clip-tiktok-action-wrapper, " +
+      ".clip-tiktok-fixed-btn"
     ).forEach(el => el.remove());
 
-    // 2. STRICT SWEEP: Absolutely NO button allowed with top < 110px or left < 60%
-    document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-fixed-btn").forEach(el => {
-      const r = el.getBoundingClientRect();
-      if (r.top < 110 || r.left < window.innerWidth * 0.60) {
-        el.remove();
-      }
-    });
+    // REQUIREMENT: "sadece kaydırırken video açıkken gelsin"
+    // Only show if there is an active video element visible on the page
+    const videoEl = getActiveTikTokVideoElement();
+    if (!videoEl) {
+      document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-arrow-nav-btn").forEach(el => el.remove());
+      return;
+    }
+
+    const vRect = videoEl.getBoundingClientRect();
+    if (vRect.width < 100 || vRect.height < 100) {
+      document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-arrow-nav-btn").forEach(el => el.remove());
+      return;
+    }
 
     // Primary: Find vertical navigation arrows (Right-side ^ and v column)
     const navArrow = findTikTokNavTarget();
@@ -341,47 +322,21 @@
         btnWrapper.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          const videoEl = getActiveTikTokVideoElement() || document.querySelector("video");
+          const curVideo = getActiveTikTokVideoElement() || videoEl;
           const exactUrl = findTikTokVideoUrl(parent.closest("article, [class*='ItemContainer']") || document.body);
           console.log("⚡ [CLIP] TikTok captured exact URL:", exactUrl);
-          triggerCapture(btnWrapper, videoEl, "tiktok", exactUrl);
+          triggerCapture(btnWrapper, curVideo, "tiktok", exactUrl);
         });
 
-        // Insert directly ABOVE the navigation arrow
+        // Insert directly ABOVE the navigation arrow (inside green circle area)
         navArrow.insertAdjacentElement("beforebegin", btnWrapper);
       }
 
       // If arrow button is present, make sure no rogue buttons exist elsewhere
       document.querySelectorAll(".clip-tiktok-action-wrapper:not(.clip-tiktok-arrow-nav-btn)").forEach(el => el.remove());
-      return;
-    }
-
-    // Fallback: If arrows not yet detected in DOM, place fixed button at right side where the arrows sit
-    if (!document.querySelector(".clip-tiktok-fixed-btn, .clip-tiktok-arrow-nav-btn")) {
-      const fixedBtn = document.createElement("div");
-      fixedBtn.className = "clip-tiktok-fixed-btn";
-      fixedBtn.title = "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)";
-      fixedBtn.innerHTML = `<div class="clip-tiktok-action-circle">${ICONS.bolt}</div>`;
-
-      fixedBtn.style.cssText = `
-        position: fixed !important;
-        right: 20px !important;
-        top: 50% !important;
-        transform: translateY(-50%) !important;
-        z-index: 2147483647 !important;
-        cursor: pointer !important;
-      `;
-      fixedBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
-      fixedBtn.addEventListener("mousedown", (e) => e.stopPropagation());
-      fixedBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const videoEl = getActiveTikTokVideoElement() || document.querySelector("video");
-        const exactUrl = findTikTokVideoUrl(document.body);
-        console.log("⚡ [CLIP] TikTok captured exact URL (fallback):", exactUrl);
-        triggerCapture(fixedBtn, videoEl, "tiktok", exactUrl);
-      });
-      document.body.appendChild(fixedBtn);
+    } else {
+      // No navigation arrows found: do NOT inject any fallback button
+      document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-fixed-btn").forEach(el => el.remove());
     }
   }
 
