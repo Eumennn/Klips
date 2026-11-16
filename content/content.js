@@ -195,25 +195,51 @@
    * Helper: Find the TikTok vertical navigation up/down arrow buttons on the right side
    */
   function findTikTokNavTarget() {
-    const candidates = [
+    const minLeft = window.innerWidth * 0.60; // MUST be on the right side of the screen
+    const minTop = 110;                      // NEVER in the top header or search bar (top < 110px)
+    const maxBottom = window.innerHeight - 30;
+
+    function isValidArrowCandidate(el) {
+      if (!el) return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return false;
+      // 1. Strict coordinate bounds: Right side ONLY, never in header/search
+      if (rect.left < minLeft || rect.top < minTop || rect.bottom > maxBottom) {
+        return false;
+      }
+
+      // 2. Must not be inside search, header, form, or comments
+      if (el.closest("header, nav, form, [data-e2e*='search'], [class*='search' i], [data-e2e*='comment'], [class*='comment' i], [data-e2e*='video-actions']")) {
+        return false;
+      }
+
+      // 3. Must not be an interactive action (Like, Comment, Bookmark, Share, Audio)
+      const text = ((el.getAttribute("data-e2e") || "") + " " + (el.getAttribute("aria-label") || "") + " " + el.className + " " + (el.title || "")).toLowerCase();
+      if (/like|beğen|comment|yorum|bookmark|kaydet|favorite|favori|share|paylaş|search|ara|volume|ses|mute|play|oynat/i.test(text)) {
+        return false;
+      }
+
+      return true;
+    }
+
+    // 1. Specific arrow selectors (both Up and Down)
+    const arrowSelectors = [
       "button[data-e2e='arrow-up']",
-      "button[data-e2e='arrow-left']",
+      "button[data-e2e='arrow-down']",
       "button[data-e2e='arrow-prev']",
-      "button[data-e2e='arrow-pre']",
-      "button[data-e2e='video-arrow-up']",
-      "button[data-e2e='video-arrow-pre']",
-      "button[data-e2e*='arrow-up']",
-      "button[data-e2e*='arrow-prev']",
+      "button[data-e2e='arrow-next']",
       "button[data-e2e='browse-up']",
+      "button[data-e2e='browse-down']",
       "button[data-e2e='browse-arrow-up']",
+      "button[data-e2e='browse-arrow-down']",
       "button[data-e2e='swipe-up']",
-      "button[aria-label*='previous' i]",
-      "button[aria-label*='önceki' i]",
-      "button[aria-label*='yukarı' i]",
-      "button[aria-label*='up' i]",
-      "button[aria-label*='scroll up' i]",
-      "div[role='button'][aria-label*='up' i]",
-      "div[role='button'][aria-label*='previous' i]",
+      "button[data-e2e='swipe-down']",
+      "button[data-e2e='video-arrow-up']",
+      "button[data-e2e='video-arrow-down']",
+      "button[data-e2e*='arrow-up']",
+      "button[data-e2e*='arrow-down']",
+      "button[data-e2e*='browse']",
+      "button[data-e2e*='swipe']",
       "[class*='ButtonVideoArrow']",
       "[class*='ArrowButton']",
       "[class*='ButtonArrow']",
@@ -221,57 +247,49 @@
       "[class*='DivArrowItem']"
     ];
 
-    for (const sel of candidates) {
+    for (const sel of arrowSelectors) {
       try {
-        const el = document.querySelector(sel);
-        if (el && !el.closest("[data-e2e*='comment'], [class*='Comment'], [class*='comment'], header, nav, [data-e2e*='search'], form")) {
-          return el;
+        const elements = document.querySelectorAll(sel);
+        for (const el of elements) {
+          if (isValidArrowCandidate(el)) {
+            return el;
+          }
         }
       } catch (e) {}
     }
 
+    // 2. Query arrow containers on the right side
     const arrowContainers = document.querySelectorAll(
       "div[class*='ArrowContainer'], div[class*='DivArrowContainer'], div[class*='NavigationContainer'], div[class*='DivNavigation'], div[class*='FeedNavigation'], div[data-e2e*='arrow'], div[data-e2e*='navigation']"
     );
     for (const container of arrowContainers) {
-      if (container.closest("[data-e2e*='comment'], [class*='Comment'], [class*='comment'], header, nav, [data-e2e*='search'], form")) continue;
-      const firstBtn = container.querySelector("button, div[role='button']");
-      if (firstBtn) return firstBtn;
-    }
-
-    // Heuristic: Circular navigation arrow buttons on the far right of the screen
-    const allButtons = document.querySelectorAll("button, div[role='button']");
-    const rightThreshold = window.innerWidth * 0.70;
-    const rightButtons = [];
-
-    for (const btn of allButtons) {
-      if (btn.closest("[data-e2e*='comment'], [class*='Comment'], [class*='comment'], header, nav, [data-e2e*='search'], form, [data-e2e*='video-actions'], .clip-tiktok-action-wrapper")) continue;
-      if (btn.classList.contains("clip-tiktok-action-wrapper")) continue;
-
-      // Strictly ignore Like, Comment, Bookmark, Share icons
-      const btnText = ((btn.getAttribute("data-e2e") || "") + " " + (btn.getAttribute("aria-label") || "") + " " + btn.className).toLowerCase();
-      if (/like|beğen|comment|yorum|bookmark|kaydet|favorite|share|paylaş|search|ara/i.test(btnText)) continue;
-
-      const svg = btn.querySelector("svg");
-      if (!svg) continue;
-
-      const rect = btn.getBoundingClientRect();
-      if (rect.width >= 24 && rect.width <= 70 && rect.height >= 24 && rect.height <= 70) {
-        if (rect.left >= rightThreshold && rect.top > 120 && rect.bottom < window.innerHeight - 50) {
-          rightButtons.push({ btn, top: rect.top });
+      const rect = container.getBoundingClientRect();
+      if (rect.left >= minLeft && rect.top >= minTop) {
+        const btn = container.querySelector("button, div[role='button']");
+        if (isValidArrowCandidate(btn)) {
+          return btn;
         }
       }
     }
 
-    if (rightButtons.length > 0) {
-      rightButtons.sort((a, b) => a.top - b.top);
-      return rightButtons[0].btn;
+    // 3. Scan circular buttons on the far right
+    const allButtons = document.querySelectorAll("button, div[role='button']");
+    const rightArrowButtons = [];
+
+    for (const btn of allButtons) {
+      if (!isValidArrowCandidate(btn)) continue;
+
+      const rect = btn.getBoundingClientRect();
+      if (rect.width >= 24 && rect.width <= 70 && rect.height >= 24 && rect.height <= 70) {
+        if (btn.querySelector("svg")) {
+          rightArrowButtons.push({ btn, top: rect.top });
+        }
+      }
     }
 
-    // Secondary fallback: if up button hidden on first video, check down arrow
-    const downArrow = document.querySelector("button[data-e2e*='arrow-down'], button[data-e2e='browse-down'], button[data-e2e='swipe-down'], button[aria-label*='next' i], button[aria-label*='aşağı' i]");
-    if (downArrow && !downArrow.closest("[data-e2e*='comment'], header, nav, [data-e2e*='search']")) {
-      return downArrow;
+    if (rightArrowButtons.length > 0) {
+      rightArrowButtons.sort((a, b) => a.top - b.top);
+      return rightArrowButtons[0].btn;
     }
 
     return null;
@@ -283,7 +301,7 @@
   function handleTikTok() {
     if (!window.location.hostname.includes("tiktok.com")) return;
 
-    // Clean up any stray buttons inside comments, headers, search bars, or top area
+    // 1. Immediately remove ANY button inside header, nav, form, search bar
     document.querySelectorAll(
       "[data-e2e*='comment'] .clip-tiktok-action-wrapper, " +
       "[class*='Comment'] .clip-tiktok-action-wrapper, " +
@@ -296,10 +314,10 @@
       "[class*='Header' i] .clip-tiktok-action-wrapper"
     ).forEach(el => el.remove());
 
-    // Also sweep any buttons placed in the top 90px (search bar zone)
+    // 2. STRICT SWEEP: Absolutely NO button allowed with top < 110px or left < 60%
     document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-fixed-btn").forEach(el => {
       const r = el.getBoundingClientRect();
-      if (r.top < 90) {
+      if (r.top < 110 || r.left < window.innerWidth * 0.60) {
         el.remove();
       }
     });
@@ -348,7 +366,7 @@
       fixedBtn.style.cssText = `
         position: fixed !important;
         right: 20px !important;
-        top: 45% !important;
+        top: 50% !important;
         transform: translateY(-50%) !important;
         z-index: 2147483647 !important;
         cursor: pointer !important;
@@ -965,11 +983,29 @@
   });
   window.__CLIP_OBSERVER__.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
-  window.addEventListener("popstate", () => {
-    // On TikTok SPA navigation, clean up single-page-specific buttons and rescan
+  // SPA Navigation hooks (TikTok search -> video modal -> feed)
+  const cleanTikTokButtons = () => {
     if (window.location.hostname.includes("tiktok.com")) {
-      document.querySelectorAll(".clip-tiktok-arrow-nav-btn, .clip-tiktok-overlay-btn, .clip-tiktok-fixed-btn").forEach(el => el.remove());
+      document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-arrow-nav-btn, .clip-tiktok-overlay-btn, .clip-tiktok-fixed-btn").forEach(el => el.remove());
     }
+  };
+
+  const origPushState = history.pushState;
+  history.pushState = function() {
+    origPushState.apply(this, arguments);
+    cleanTikTokButtons();
+    scheduleScan(60);
+  };
+
+  const origReplaceState = history.replaceState;
+  history.replaceState = function() {
+    origReplaceState.apply(this, arguments);
+    cleanTikTokButtons();
+    scheduleScan(60);
+  };
+
+  window.addEventListener("popstate", () => {
+    cleanTikTokButtons();
     scheduleScan(50);
   });
 
