@@ -106,7 +106,20 @@ try:
     print(f"🎬 [CLIP] FFmpeg detected: {FFMPEG_PATH}")
 except Exception as e:
     FFMPEG_PATH = None
-    print(f"⚠️ [CLIP] FFmpeg not found, falling back to progressive streams: {e}")
+
+if not FFMPEG_PATH:
+    fallback_paths = [
+        r"C:\Users\pc\AppData\Local\Programs\Python\Python312\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe",
+        r"C:\Users\pc\miniconda3\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe",
+    ]
+    for p in fallback_paths:
+        if os.path.exists(p):
+            FFMPEG_PATH = p
+            print(f"🎬 [CLIP] FFmpeg detected (fallback): {FFMPEG_PATH}")
+            break
+
+if not FFMPEG_PATH:
+    print("⚠️ [CLIP] FFmpeg not found, falling back to progressive streams.")
 
 # Win32 Clipboard Definitions
 CF_HDROP = 15
