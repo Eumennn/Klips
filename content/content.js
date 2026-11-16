@@ -192,19 +192,25 @@
   }
 
   /**
-   * Helper: Check if element is inside TikTok comments drawer or list
+   * Helper: Check if element is inside TikTok comments drawer, list or comment card
    */
-  function isInsideComments(el) {
+  function isCommentElement(el) {
     if (!el) return false;
     let cur = el;
-    while (cur && cur !== document.body) {
+    for (let depth = 0; depth < 10 && cur && cur !== document.body; depth++) {
       const cls = (cur.className || "").toString();
       const id = (cur.id || "").toString();
       const e2e = (cur.getAttribute("data-e2e") || "").toString();
       const role = (cur.getAttribute("role") || "").toString();
-      const aria = (cur.getAttribute("aria-label") || "").toString();
-      if (/comment|reply|yorum|tabpanel/i.test(cls + " " + id + " " + e2e + " " + role + " " + aria)) {
+      if (/comment|reply|yorum|tabpanel/i.test(cls + " " + id + " " + e2e + " " + role)) {
         return true;
+      }
+      // Check if text inside this row contains "Yanıtla" or "Reply" (universal TikTok comment hallmark)
+      if (cur.tagName === "DIV" || cur.tagName === "LI" || cur.tagName === "SECTION") {
+        const txt = cur.innerText || cur.textContent || "";
+        if (txt.includes("Yanıtla") || txt.includes("Reply")) {
+          return true;
+        }
       }
       cur = cur.parentElement;
     }
@@ -214,43 +220,45 @@
   /**
    * Helper: Check if an element is a real TikTok standalone vertical navigation arrow button
    */
-  function isStandaloneArrowButton(el) {
+  function isValidTikTokArrow(el) {
     if (!el) return false;
-    // 1. Must NOT contain text or numbers (e.g. comment like counts "6", "19", "479")
+    if (el.classList.contains("clip-tiktok-action-wrapper") || el.classList.contains("clip-tiktok-fixed-btn")) return false;
+
+    // 1. Must contain an SVG
+    if (!el.querySelector("svg")) return false;
+
+    // 2. Must have NO text (arrows never have text; comments have usernames or like counts)
     if (el.innerText && el.innerText.trim() !== "") return false;
     if (el.textContent && el.textContent.trim() !== "") return false;
-    if (el.parentElement) {
-      const pText = el.parentElement.innerText || el.parentElement.textContent || "";
-      if (/\d+/.test(pText.trim())) return false;
-    }
 
-    // 2. Must contain an SVG
-    const svg = el.querySelector("svg");
-    if (!svg) return false;
+    // 3. Must NEVER be inside comments
+    if (isCommentElement(el)) return false;
 
-    // 3. Must NEVER be inside comments, search bar, header, form, or video actions
-    if (isInsideComments(el)) return false;
+    // 4. Must NOT be in search bar, header, nav, form, or video actions
     if (el.closest("header, nav, form, [data-e2e*='search'], [class*='search' i], [data-e2e*='video-actions']")) {
       return false;
     }
 
-    // 4. Must not be Like, Bookmark, Share, Audio/Mute, Play/Pause
+    // 5. Must NOT be Like, Bookmark, Share, Audio/Mute, Play/Pause, Fullscreen
     const allAttrs = ((el.className || "") + " " + (el.getAttribute("data-e2e") || "") + " " + (el.getAttribute("aria-label") || "") + " " + (el.title || "")).toLowerCase();
-    if (/like|beğen|comment|yorum|bookmark|kaydet|favorite|favori|share|paylaş|heart|mute|ses|volume|play|oynat/i.test(allAttrs)) {
+    if (/like|beğen|comment|yorum|bookmark|kaydet|favorite|favori|share|paylaş|heart|mute|ses|volume|play|oynat|fullscreen|tam ekran/i.test(allAttrs)) {
       return false;
     }
 
-    // 5. Must be roughly circular/square (width & height between 24px and 68px)
+    // 6. Must be roughly circular/square (width & height between 24px and 68px)
     const rect = el.getBoundingClientRect();
     if (rect.width < 24 || rect.width > 68 || rect.height < 24 || rect.height > 68) {
       return false;
     }
-    if (Math.abs(rect.width - rect.height) > 12) {
+    if (Math.abs(rect.width - rect.height) > 14) {
       return false;
     }
 
-    // 6. Must be in the main vertical view area (between top 100px and bottom 60px)
-    if (rect.top < 100 || rect.bottom > window.innerHeight - 30) {
+    // 7. Must be in the main vertical view area (between top 85px and bottom 40px)
+    if (rect.top < 85 || rect.bottom > window.innerHeight - 30) {
+      return false;
+    }
+    if (rect.left < 80 || rect.left > window.innerWidth - 30) {
       return false;
     }
 
@@ -285,13 +293,15 @@
       "[class*='ArrowButton']",
       "[class*='VideoArrow']",
       "[class*='DivArrowItem']",
-      "[class*='ArrowItem']"
+      "[class*='ArrowItem']",
+      "[class*='NavigationContainer'] button",
+      "[class*='DivArrowContainer'] button"
     ];
 
     const matched = [];
     for (const sel of arrowSelectors) {
       for (const el of document.querySelectorAll(sel)) {
-        if (isStandaloneArrowButton(el) && !matched.includes(el)) {
+        if (isValidTikTokArrow(el) && !matched.includes(el)) {
           matched.push(el);
         }
       }
@@ -307,7 +317,7 @@
     const allBtns = Array.from(document.querySelectorAll("button, div[role='button']"));
     const arrowCandidates = [];
     for (const btn of allBtns) {
-      if (isStandaloneArrowButton(btn)) {
+      if (isValidTikTokArrow(btn)) {
         arrowCandidates.push(btn);
       }
     }
