@@ -78,6 +78,7 @@
 
 .clip-tiktok-arrow-nav-btn .clip-tiktok-action-circle,
 .clip-tiktok-overlay-btn .clip-tiktok-action-circle,
+.clip-tiktok-fixed-btn .clip-tiktok-action-circle,
 .clip-single-tiktok-btn .clip-tiktok-action-circle {
   width: 40px !important;
   height: 40px !important;
@@ -97,6 +98,7 @@
 
 .clip-tiktok-arrow-nav-btn:hover .clip-tiktok-action-circle,
 .clip-tiktok-overlay-btn:hover .clip-tiktok-action-circle,
+.clip-tiktok-fixed-btn:hover .clip-tiktok-action-circle,
 .clip-single-tiktok-btn:hover .clip-tiktok-action-circle {
   transform: scale(1.15) !important;
   background: rgba(30, 27, 75, 0.95) !important;
