@@ -68,8 +68,10 @@
    * Helper: Extract exact TikTok video URL or 19-digit ID from container or active video
    */
   function findTikTokVideoUrl(targetEl) {
-    // 1. Direct standalone video URL in address bar
+    // 1. Direct standalone video URL in address bar (clean canonical URL without query string)
     if (window.location.href.includes("/video/")) {
+      const m = window.location.href.match(/https?:\/\/(?:www\.)?tiktok\.com\/@[^/?#]+\/video\/\d+/);
+      if (m) return m[0];
       return window.location.href;
     }
 
@@ -196,25 +198,7 @@
    */
   function isCommentElement(el) {
     if (!el) return false;
-    let cur = el;
-    for (let depth = 0; depth < 10 && cur && cur !== document.body; depth++) {
-      const cls = (cur.className || "").toString();
-      const id = (cur.id || "").toString();
-      const e2e = (cur.getAttribute("data-e2e") || "").toString();
-      const role = (cur.getAttribute("role") || "").toString();
-      if (/comment|reply|yorum|tabpanel/i.test(cls + " " + id + " " + e2e + " " + role)) {
-        return true;
-      }
-      // Check if text inside this row contains "Yanıtla" or "Reply" (universal TikTok comment hallmark)
-      if (cur.tagName === "DIV" || cur.tagName === "LI" || cur.tagName === "SECTION") {
-        const txt = cur.innerText || cur.textContent || "";
-        if (txt.includes("Yanıtla") || txt.includes("Reply")) {
-          return true;
-        }
-      }
-      cur = cur.parentElement;
-    }
-    return false;
+    return !!el.closest("[data-e2e*='comment-item'], [data-e2e*='comment-level'], [class*='DivCommentItem'], [class*='CommentItem'], [class*='comment-item'], [class*='comment-level'], [class*='ReplyItem'], [data-e2e*='reply-item'], [class*='CommentList'], [data-e2e*='comment-list']");
   }
 
   /**
@@ -224,41 +208,59 @@
     if (!el) return false;
     if (el.classList.contains("clip-tiktok-action-wrapper") || el.classList.contains("clip-tiktok-fixed-btn")) return false;
 
+    // 0. Must be visible
+    try {
+      const comp = window.getComputedStyle(el);
+      if (comp.display === "none" || comp.visibility === "hidden" || comp.opacity === "0") {
+        return false;
+      }
+    } catch (e) {}
+
     // 1. Must contain an SVG
     if (!el.querySelector("svg")) return false;
 
-    // 2. Must have NO text (arrows never have text; comments have usernames or like counts)
-    if (el.innerText && el.innerText.trim() !== "") return false;
-    if (el.textContent && el.textContent.trim() !== "") return false;
-
-    // 3. Must NEVER be inside comments
+    // 2. Must NEVER be inside comment cards
     if (isCommentElement(el)) return false;
 
-    // 4. Must NOT be in search bar, header, nav, form, or video actions
-    if (el.closest("header, nav, form, [data-e2e*='search'], [class*='search' i], [data-e2e*='video-actions']")) {
+    // 3. Must NOT be in search bar, header, nav, or video player controls
+    // NOTE: NEVER check class*='search' or data-e2e*='search' on ancestors,
+    // because videos opened from search have search-level parent containers!
+    if (el.closest("header, [role='banner'], nav, form, [role='search'], [data-e2e='search-box'], [class*='SearchBox'], [class*='SearchBar']")) {
+      return false;
+    }
+    if (el.querySelector("input, textarea")) return false;
+
+    if (el.closest("[data-e2e*='video-control'], [class*='control' i], [class*='seekbar' i], [class*='SeekBar']")) {
       return false;
     }
 
-    // 5. Must NOT be Like, Bookmark, Share, Audio/Mute, Play/Pause, Fullscreen
+    // 4. Must NOT be Like, Bookmark, Share, Audio/Mute, Play/Pause, Fullscreen, Close, More
     const allAttrs = ((el.className || "") + " " + (el.getAttribute("data-e2e") || "") + " " + (el.getAttribute("aria-label") || "") + " " + (el.title || "")).toLowerCase();
-    if (/like|beğen|comment|yorum|bookmark|kaydet|favorite|favori|share|paylaş|heart|mute|ses|volume|play|oynat|fullscreen|tam ekran/i.test(allAttrs)) {
+    if (/like|beğen|bookmark|kaydet|favorite|favori|share|paylaş|heart|mute|ses|volume|play|oynat|fullscreen|tam ekran|speed|hız|close|kapat|more|daha/i.test(allAttrs)) {
       return false;
     }
 
-    // 6. Must be roughly circular/square (width & height between 24px and 68px)
+    // 5. Must be roughly circular/square (width & height between 24px and 68px)
     const rect = el.getBoundingClientRect();
     if (rect.width < 24 || rect.width > 68 || rect.height < 24 || rect.height > 68) {
       return false;
     }
-    if (Math.abs(rect.width - rect.height) > 14) {
+    if (Math.abs(rect.width - rect.height) > 16) {
       return false;
     }
 
-    // 7. Must be in the main vertical view area (between top 85px and bottom 40px)
-    if (rect.top < 85 || rect.bottom > window.innerHeight - 30) {
+    // 6. Must be in the main vertical view area (between top 95px and bottom 35px)
+    // Excludes top header/search area entirely (rect.top < 95)
+    if (rect.top < 95 || rect.bottom > window.innerHeight - 35) {
       return false;
     }
-    if (rect.left < 80 || rect.left > window.innerWidth - 30) {
+
+    // 7. Must NOT be near the far right edge of the screen (where comment likes live: right > innerWidth - 65)
+    // The navigation arrows sit to the left of the comments panel
+    if (rect.right > window.innerWidth - 65) {
+      return false;
+    }
+    if (rect.left < 60) {
       return false;
     }
 
@@ -307,24 +309,18 @@
       }
     }
 
+    // 2. Also check all buttons on page that pass isValidTikTokArrow
+    const allBtns = Array.from(document.querySelectorAll("button, div[role='button']"));
+    for (const btn of allBtns) {
+      if (isValidTikTokArrow(btn) && !matched.includes(btn)) {
+        matched.push(btn);
+      }
+    }
+
     if (matched.length > 0) {
       // Sort by top ascending -> topmost is up arrow (or down arrow if only one)
       matched.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
       return matched[0];
-    }
-
-    // 2. Scan all buttons on page for circular standalone arrow buttons
-    const allBtns = Array.from(document.querySelectorAll("button, div[role='button']"));
-    const arrowCandidates = [];
-    for (const btn of allBtns) {
-      if (isValidTikTokArrow(btn)) {
-        arrowCandidates.push(btn);
-      }
-    }
-
-    if (arrowCandidates.length > 0) {
-      arrowCandidates.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
-      return arrowCandidates[0];
     }
 
     return null;
@@ -339,17 +335,24 @@
 
     // Clean up any stray buttons inside comments, headers, search bars, or old fixed buttons
     document.querySelectorAll(
-      "[data-e2e*='comment'] .clip-tiktok-action-wrapper, " +
-      "[class*='Comment'] .clip-tiktok-action-wrapper, " +
-      "[class*='comment'] .clip-tiktok-action-wrapper, " +
       "header .clip-tiktok-action-wrapper, " +
       "nav .clip-tiktok-action-wrapper, " +
       "form .clip-tiktok-action-wrapper, " +
-      "[data-e2e*='search'] .clip-tiktok-action-wrapper, " +
-      "[class*='search' i] .clip-tiktok-action-wrapper, " +
+      "[role='search'] .clip-tiktok-action-wrapper, " +
+      "[data-e2e*='comment-item'] .clip-tiktok-action-wrapper, " +
+      "[data-e2e*='comment-level'] .clip-tiktok-action-wrapper, " +
+      "[class*='CommentItem'] .clip-tiktok-action-wrapper, " +
+      "[class*='comment-item'] .clip-tiktok-action-wrapper, " +
+      "[class*='ReplyItem'] .clip-tiktok-action-wrapper, " +
       "[class*='Header' i] .clip-tiktok-action-wrapper, " +
       ".clip-tiktok-fixed-btn"
     ).forEach(el => el.remove());
+
+    // Strict safety: remove any button in the top header / search bar zone (top < 90)
+    document.querySelectorAll(".clip-tiktok-action-wrapper").forEach(el => {
+      const r = el.getBoundingClientRect();
+      if (r.top > 0 && r.top < 90) el.remove();
+    });
 
     // REQUIREMENT: "sadece kaydırırken video açıkken gelsin"
     // Only show if there is an active video element visible on the page
@@ -369,8 +372,15 @@
     const navArrow = findTikTokNavTarget();
 
     if (navArrow) {
+      // Target element to place before: either navArrow or its single-child wrapper item
+      let targetEl = navArrow;
       const parent = navArrow.parentElement;
-      if (parent && !parent.querySelector(".clip-tiktok-arrow-nav-btn")) {
+      if (parent && parent.children.length === 1 && parent.parentElement && (parent.parentElement.querySelectorAll("button, [role='button']").length >= 1)) {
+        targetEl = parent;
+      }
+      const container = targetEl.parentElement;
+
+      if (container && !container.querySelector(".clip-tiktok-arrow-nav-btn")) {
         // Remove any other tiktok buttons on the page
         document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-overlay-btn, .clip-tiktok-fixed-btn").forEach(el => el.remove());
 
@@ -379,16 +389,21 @@
         btnWrapper.title = "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)";
         btnWrapper.innerHTML = `<div class="clip-tiktok-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>`;
 
-        // If navArrow is absolutely positioned, match its positioning
+        // If targetEl is absolutely/fixed positioned, match its positioning
         try {
-          const comp = window.getComputedStyle(navArrow);
-          if (comp.position === "absolute") {
-            btnWrapper.style.position = "absolute";
-            btnWrapper.style.left = navArrow.style.left || (navArrow.offsetLeft + "px");
-            const bottomVal = parseFloat(comp.bottom);
-            if (!isNaN(bottomVal)) {
-              btnWrapper.style.bottom = (bottomVal + navArrow.offsetHeight + 8) + "px";
-            }
+          const comp = window.getComputedStyle(targetEl);
+          if (comp.position === "absolute" || comp.position === "fixed") {
+            btnWrapper.style.position = comp.position;
+            btnWrapper.style.left = (targetEl.offsetLeft || 0) + "px";
+            btnWrapper.style.top = ((targetEl.offsetTop || 0) - (targetEl.offsetHeight || 40) - 8) + "px";
+          }
+        } catch (e) {}
+
+        // Make sure container doesn't clip
+        try {
+          const cComp = window.getComputedStyle(container);
+          if (cComp.overflow === "hidden" || cComp.overflowY === "hidden") {
+            container.style.overflow = "visible";
           }
         } catch (e) {}
 
@@ -398,13 +413,13 @@
           e.preventDefault();
           e.stopPropagation();
           const curVideo = getActiveTikTokVideoElement() || videoEl;
-          const exactUrl = findTikTokVideoUrl(parent.closest("article, [class*='ItemContainer']") || document.body);
+          const exactUrl = findTikTokVideoUrl(targetEl.closest("article, [class*='ItemContainer']") || document.body);
           console.log("⚡ [CLIP] TikTok captured exact URL:", exactUrl);
           triggerCapture(btnWrapper, curVideo, "tiktok", exactUrl);
         });
 
         // Insert directly ABOVE the navigation arrow (inside green circle area)
-        navArrow.insertAdjacentElement("beforebegin", btnWrapper);
+        targetEl.insertAdjacentElement("beforebegin", btnWrapper);
       }
 
       // If arrow button is present, make sure no rogue buttons exist elsewhere
