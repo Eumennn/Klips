@@ -21,17 +21,11 @@
     close: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
     spinner: `<span class="clip-ext-spinner"></span>`,
     check: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
-    star: `<svg width="14" height="14" viewBox="0 0 24 24" fill="#fbbf24" stroke="#fbbf24" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`
+    star: `<svg width="14" height="14" viewBox="0 0 24 24" fill="#fbbf24" stroke="#fbbf24" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`,
+    scissors: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="8.12" y2="15.88"></line><line x1="14.47" y1="14.48" x2="20" y2="20"></line><line x1="8.12" y1="8.12" x2="12" y2="12"></line></svg>`
   };
 
-  async function checkIsPro() {
-    try {
-      const data = await chrome.storage.local.get("settings");
-      return data?.settings?.isPro === true;
-    } catch (e) {
-      return false;
-    }
-  }
+  // Universal Video Clipboard (100% Free & Unlimited Open Source)
 
 
 
@@ -202,231 +196,100 @@
   }
 
   /**
-   * Helper: Check if an element is a real TikTok standalone vertical navigation arrow button
-   */
-  function isValidTikTokArrow(el) {
-    if (!el) return false;
-    if (el.classList.contains("clip-tiktok-action-wrapper") || el.classList.contains("clip-tiktok-fixed-btn")) return false;
-
-    // 0. Must be visible
-    try {
-      const comp = window.getComputedStyle(el);
-      if (comp.display === "none" || comp.visibility === "hidden" || comp.opacity === "0") {
-        return false;
-      }
-    } catch (e) {}
-
-    // 1. Must contain an SVG
-    if (!el.querySelector("svg")) return false;
-
-    // 2. Must NEVER be inside comment cards
-    if (isCommentElement(el)) return false;
-
-    // 3. Must NOT be in search bar, header, nav, or video player controls
-    // NOTE: NEVER check class*='search' or data-e2e*='search' on ancestors,
-    // because videos opened from search have search-level parent containers!
-    if (el.closest("header, [role='banner'], nav, form, [role='search'], [data-e2e='search-box'], [class*='SearchBox'], [class*='SearchBar']")) {
-      return false;
-    }
-    if (el.querySelector("input, textarea")) return false;
-
-    if (el.closest("[data-e2e*='video-control'], [class*='control' i], [class*='seekbar' i], [class*='SeekBar']")) {
-      return false;
-    }
-
-    // 4. Must NOT be Like, Bookmark, Share, Audio/Mute, Play/Pause, Fullscreen, Close, More
-    const allAttrs = ((el.className || "") + " " + (el.getAttribute("data-e2e") || "") + " " + (el.getAttribute("aria-label") || "") + " " + (el.title || "")).toLowerCase();
-    if (/like|beğen|bookmark|kaydet|favorite|favori|share|paylaş|heart|mute|ses|volume|play|oynat|fullscreen|tam ekran|speed|hız|close|kapat|more|daha/i.test(allAttrs)) {
-      return false;
-    }
-
-    // 5. Must be roughly circular/square (width & height between 24px and 68px)
-    const rect = el.getBoundingClientRect();
-    if (rect.width < 24 || rect.width > 68 || rect.height < 24 || rect.height > 68) {
-      return false;
-    }
-    if (Math.abs(rect.width - rect.height) > 16) {
-      return false;
-    }
-
-    // 6. Must be in the main vertical view area (between top 95px and bottom 35px)
-    // Excludes top header/search area entirely (rect.top < 95)
-    if (rect.top < 95 || rect.bottom > window.innerHeight - 35) {
-      return false;
-    }
-
-    // 7. Must NOT be near the far right edge of the screen (where comment likes live: right > innerWidth - 65)
-    // The navigation arrows sit to the left of the comments panel
-    if (rect.right > window.innerWidth - 65) {
-      return false;
-    }
-    if (rect.left < 60) {
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Helper: Find the TikTok vertical navigation up/down arrow buttons
-   * Strictly matches the real arrow buttons beside the video player (never comment likes!)
-   */
-  function findTikTokNavTarget() {
-    // 1. Check all explicit arrow button selectors on TikTok
-    const arrowSelectors = [
-      "button[data-e2e='arrow-up']",
-      "button[data-e2e='arrow-down']",
-      "button[data-e2e*='arrow-up']",
-      "button[data-e2e*='arrow-down']",
-      "button[data-e2e*='browse-up']",
-      "button[data-e2e*='browse-down']",
-      "button[data-e2e*='swipe-up']",
-      "button[data-e2e*='swipe-down']",
-      "button[data-e2e*='video-arrow']",
-      "button[data-e2e*='arrow']",
-      "div[role='button'][data-e2e*='arrow']",
-      "button[aria-label*='previous' i]",
-      "button[aria-label*='next' i]",
-      "button[aria-label*='önceki' i]",
-      "button[aria-label*='sonraki' i]",
-      "button[aria-label*='yukarı' i]",
-      "button[aria-label*='aşağı' i]",
-      "[class*='ButtonVideoArrow']",
-      "[class*='ArrowButton']",
-      "[class*='VideoArrow']",
-      "[class*='DivArrowItem']",
-      "[class*='ArrowItem']",
-      "[class*='NavigationContainer'] button",
-      "[class*='DivArrowContainer'] button"
-    ];
-
-    const matched = [];
-    for (const sel of arrowSelectors) {
-      for (const el of document.querySelectorAll(sel)) {
-        if (isValidTikTokArrow(el) && !matched.includes(el)) {
-          matched.push(el);
-        }
-      }
-    }
-
-    // 2. Also check all buttons on page that pass isValidTikTokArrow
-    const allBtns = Array.from(document.querySelectorAll("button, div[role='button']"));
-    for (const btn of allBtns) {
-      if (isValidTikTokArrow(btn) && !matched.includes(btn)) {
-        matched.push(btn);
-      }
-    }
-
-    if (matched.length > 0) {
-      // Sort by top ascending -> topmost is up arrow (or down arrow if only one)
-      matched.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
-      return matched[0];
-    }
-
-    return null;
-  }
-
-  /**
-   * 2. TikTok Adapter (Single button strictly ABOVE the vertical navigation arrows on the right)
-   * ONLY active when a video is open/playing during feed scrolling
+   * 2. TikTok Adapter (Aligned seamlessly in the right vertical action column above the Like button)
+   * Natural flex-column flow, zero overlap with the profile avatar.
    */
   function handleTikTok() {
     if (!window.location.hostname.includes("tiktok.com")) return;
 
-    // Clean up any stray buttons inside comments, headers, search bars, or old fixed buttons
+    // Clean up any stray buttons inside comments, headers, search bars
     document.querySelectorAll(
       "header .clip-tiktok-action-wrapper, " +
       "nav .clip-tiktok-action-wrapper, " +
       "form .clip-tiktok-action-wrapper, " +
       "[role='search'] .clip-tiktok-action-wrapper, " +
-      "[data-e2e*='comment-item'] .clip-tiktok-action-wrapper, " +
-      "[data-e2e*='comment-level'] .clip-tiktok-action-wrapper, " +
-      "[class*='CommentItem'] .clip-tiktok-action-wrapper, " +
-      "[class*='comment-item'] .clip-tiktok-action-wrapper, " +
-      "[class*='ReplyItem'] .clip-tiktok-action-wrapper, " +
-      "[class*='Header' i] .clip-tiktok-action-wrapper, " +
+      "[data-e2e*='comment'] .clip-tiktok-action-wrapper, " +
+      "[class*='Comment'] .clip-tiktok-action-wrapper, " +
       ".clip-tiktok-fixed-btn"
     ).forEach(el => el.remove());
 
-    // Strict safety: remove any button in the top header / search bar zone (top < 90)
-    document.querySelectorAll(".clip-tiktok-action-wrapper").forEach(el => {
-      const r = el.getBoundingClientRect();
-      if (r.top > 0 && r.top < 90) el.remove();
-    });
-
-    // REQUIREMENT: "sadece kaydırırken video açıkken gelsin"
-    // Only show if there is an active video element visible on the page
     const videoEl = getActiveTikTokVideoElement();
     if (!videoEl) {
-      document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-arrow-nav-btn").forEach(el => el.remove());
+      document.querySelectorAll(".clip-tiktok-action-wrapper").forEach(el => el.remove());
       return;
     }
 
-    const vRect = videoEl.getBoundingClientRect();
-    if (vRect.width < 100 || vRect.height < 100) {
-      document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-arrow-nav-btn").forEach(el => el.remove());
-      return;
+    // Find the Like button in the right action column
+    const likeButtons = document.querySelectorAll(
+      "[data-e2e='like-icon'], " +
+      "[data-e2e='feed-like-icon'], " +
+      "[data-e2e='like-button'], " +
+      "[data-e2e*='like'], " +
+      "button[aria-label*='like' i], " +
+      "button[aria-label*='beğen' i], " +
+      "div[role='button'][aria-label*='like' i], " +
+      "div[role='button'][aria-label*='beğen' i]"
+    );
+
+    let injected = false;
+    for (const likeBtn of likeButtons) {
+      // Must not be in comments
+      if (likeBtn.closest("[data-e2e*='comment'], [class*='Comment'], [class*='comment']")) continue;
+
+      // Find unit container for the like button
+      let targetUnit = likeBtn;
+      const parentContainer = likeBtn.closest(
+        "[class*='ActionItem'], " +
+        "[class*='DivItemContainer'], " +
+        "[class*='ItemContainer'], " +
+        "[class*='DivActionItem'], " +
+        "[class*='FeedAction'], " +
+        "[data-e2e='browse-action-item'], " +
+        "section"
+      );
+
+      if (parentContainer && likeBtn.parentElement !== parentContainer) {
+        let cur = likeBtn;
+        while (cur && cur.parentElement && cur.parentElement !== parentContainer) {
+          cur = cur.parentElement;
+        }
+        if (cur) targetUnit = cur;
+      }
+
+      if (targetUnit.parentElement && targetUnit.parentElement.querySelector(".clip-tiktok-action-wrapper")) {
+        injected = true;
+        break;
+      }
+
+      const btnWrapper = document.createElement("div");
+      btnWrapper.className = "clip-tiktok-action-wrapper";
+      if (!isCompanionActive) btnWrapper.classList.add("clip-paused");
+      btnWrapper.title = isCompanionActive
+        ? "CLIP — TikTok'u Panoya Kopyala (WhatsApp / Discord)"
+        : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
+      btnWrapper.innerHTML = `<div class="clip-tiktok-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>`;
+
+      btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
+      btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
+      btnWrapper.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const curVideo = getActiveTikTokVideoElement() || videoEl;
+        const exactUrl = findTikTokVideoUrl(targetUnit.closest("article, [class*='ItemContainer']") || document.body);
+        console.log("⚡ [CLIP] TikTok captured exact URL:", exactUrl);
+        triggerCapture(btnWrapper, curVideo, "tiktok", exactUrl);
+      });
+
+      // Insert directly ABOVE the Like button in the action column
+      targetUnit.insertAdjacentElement("beforebegin", btnWrapper);
+      injected = true;
+      break;
     }
 
-    // Primary: Find vertical navigation arrows (Right-side ^ and v column)
-    const navArrow = findTikTokNavTarget();
-
-    if (navArrow) {
-      // Target element to place before: either navArrow or its single-child wrapper item
-      let targetEl = navArrow;
-      const parent = navArrow.parentElement;
-      if (parent && parent.children.length === 1 && parent.parentElement && (parent.parentElement.querySelectorAll("button, [role='button']").length >= 1)) {
-        targetEl = parent;
-      }
-      const container = targetEl.parentElement;
-
-      if (container && !container.querySelector(".clip-tiktok-arrow-nav-btn")) {
-        // Remove any other tiktok buttons on the page
-        document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-overlay-btn, .clip-tiktok-fixed-btn").forEach(el => el.remove());
-
-        const btnWrapper = document.createElement("div");
-        btnWrapper.className = "clip-tiktok-action-wrapper clip-tiktok-arrow-nav-btn";
-        btnWrapper.title = "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)";
-        btnWrapper.innerHTML = `<div class="clip-tiktok-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>`;
-
-        // If targetEl is absolutely/fixed positioned, match its positioning
-        try {
-          const comp = window.getComputedStyle(targetEl);
-          if (comp.position === "absolute" || comp.position === "fixed") {
-            btnWrapper.style.position = comp.position;
-            btnWrapper.style.left = (targetEl.offsetLeft || 0) + "px";
-            btnWrapper.style.top = ((targetEl.offsetTop || 0) - (targetEl.offsetHeight || 40) - 8) + "px";
-          }
-        } catch (e) {}
-
-        // Make sure container doesn't clip
-        try {
-          const cComp = window.getComputedStyle(container);
-          if (cComp.overflow === "hidden" || cComp.overflowY === "hidden") {
-            container.style.overflow = "visible";
-          }
-        } catch (e) {}
-
-        btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
-        btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
-        btnWrapper.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const curVideo = getActiveTikTokVideoElement() || videoEl;
-          const exactUrl = findTikTokVideoUrl(targetEl.closest("article, [class*='ItemContainer']") || document.body);
-          console.log("⚡ [CLIP] TikTok captured exact URL:", exactUrl);
-          triggerCapture(btnWrapper, curVideo, "tiktok", exactUrl);
-        });
-
-        // Insert directly ABOVE the navigation arrow (inside green circle area)
-        targetEl.insertAdjacentElement("beforebegin", btnWrapper);
-      }
-
-      // If arrow button is present, make sure no rogue buttons exist elsewhere
-      document.querySelectorAll(".clip-tiktok-action-wrapper:not(.clip-tiktok-arrow-nav-btn)").forEach(el => el.remove());
-    } else {
-      // No navigation arrows found: do NOT inject any fallback button
-      document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-fixed-btn").forEach(el => el.remove());
+    // Clean up any extra tiktok buttons
+    const allTk = document.querySelectorAll(".clip-tiktok-action-wrapper");
+    if (allTk.length > 1) {
+      for (let i = 1; i < allTk.length; i++) allTk[i].remove();
     }
   }
 
@@ -620,6 +483,480 @@
     });
   }
 
+  /**
+   * Helper: Resolve exact YouTube Shorts URL
+   */
+  function findYouTubeShortsUrl(reel, videoEl) {
+    // 1. Direct shortcode in window.location (e.g. /shorts/v3cWqK-4X3c)
+    const m = window.location.pathname.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+    if (m && m[1]) {
+      // If reel is active or only one reel on page, current URL is exact
+      if (!reel || reel.hasAttribute("is-active") || document.querySelectorAll("ytd-reel-video-renderer").length <= 1) {
+        return `https://www.youtube.com/shorts/${m[1]}`;
+      }
+    }
+
+    // 2. Check reel container anchors with /shorts/
+    if (reel) {
+      const anchors = reel.querySelectorAll("a[href*='/shorts/']");
+      for (const a of anchors) {
+        const h = a.getAttribute("href") || a.href || "";
+        const match = h.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+        if (match && match[1]) {
+          return `https://www.youtube.com/shorts/${match[1]}`;
+        }
+      }
+
+      // Check data attributes or id
+      const dataId = reel.getAttribute("data-video-id");
+      if (dataId && /^[a-zA-Z0-9_-]{11}$/.test(dataId)) {
+        return `https://www.youtube.com/shorts/${dataId}`;
+      }
+    }
+
+    // 3. Check active reel renderer in DOM
+    const activeReel = document.querySelector("ytd-reel-video-renderer[is-active]");
+    if (activeReel) {
+      const a = activeReel.querySelector("a[href*='/shorts/']");
+      if (a) {
+        const match = (a.getAttribute("href") || a.href || "").match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+        if (match && match[1]) return `https://www.youtube.com/shorts/${match[1]}`;
+      }
+    }
+
+    // 4. Fallback to window.location
+    if (window.location.href.includes("/shorts/")) {
+      const clean = window.location.href.match(/https?:\/\/(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/);
+      if (clean) return clean[0];
+      return window.location.href.split("?")[0];
+    }
+
+    return window.location.href;
+  }
+
+  /**
+   * Helper: Format seconds to MM:SS or HH:MM:SS
+   */
+  function formatTime(seconds) {
+    if (isNaN(seconds) || seconds < 0) seconds = 0;
+    const s = Math.floor(seconds);
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    if (hrs > 0) {
+      return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
+
+  /**
+   * Helper: Parse MM:SS or HH:MM:SS or raw seconds to float seconds
+   */
+  function parseTimeToSeconds(str) {
+    if (typeof str === "number") return str;
+    if (!str) return 0;
+    const parts = str.trim().split(":").map(p => parseFloat(p) || 0);
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    } else if (parts.length === 1) {
+      return parts[0];
+    }
+    return 0;
+  }
+
+  /**
+   * 5. YouTube Shorts Adapter (Strictly restricted to /shorts/ URLs)
+   */
+  function handleYouTubeShorts() {
+    if (!window.location.hostname.includes("youtube.com")) return;
+
+    // CRITICAL: Strictly run ONLY on /shorts/ paths!
+    // On regular horizontal watch pages (/watch?v=...), clean up any Shorts buttons and return.
+    if (!window.location.pathname.startsWith("/shorts")) {
+      document.querySelectorAll(".clip-shorts-action-wrapper").forEach(el => el.remove());
+      return;
+    }
+
+    // Strategy 1: Target all Like buttons inside Shorts action bars
+    const likeButtons = document.querySelectorAll(
+      "ytd-reel-player-overlay-renderer #like-button, " +
+      "ytd-reel-video-renderer #like-button, " +
+      "ytd-reel-video-renderer like-button-view-model, " +
+      "ytd-reel-video-renderer yt-like-button-view-model, " +
+      "ytd-reel-video-renderer ytd-like-button-renderer, " +
+      "ytd-shorts #actions #like-button, " +
+      "ytd-shorts #actions ytd-like-button-renderer, " +
+      "ytd-shorts #actions like-button-view-model, " +
+      "ytd-shorts #actions yt-like-button-view-model"
+    );
+
+    likeButtons.forEach(likeBtn => {
+      let targetUnit = likeBtn;
+      const actionsContainer = likeBtn.closest("#actions, [id='actions'], ytd-reel-player-overlay-renderer");
+      if (actionsContainer && likeBtn.parentElement === actionsContainer) {
+        targetUnit = likeBtn;
+      } else if (actionsContainer) {
+        let cur = likeBtn;
+        while (cur && cur.parentElement && cur.parentElement !== actionsContainer) {
+          cur = cur.parentElement;
+        }
+        if (cur && cur.parentElement === actionsContainer) {
+          targetUnit = cur;
+        }
+      }
+
+      if (targetUnit.previousElementSibling && targetUnit.previousElementSibling.classList.contains("clip-shorts-action-wrapper")) {
+        return;
+      }
+      if (actionsContainer && actionsContainer.querySelector(".clip-shorts-action-wrapper")) {
+        return;
+      }
+
+      const reel = targetUnit.closest("ytd-reel-video-renderer, ytm-reel-item-renderer, ytd-shorts, [class*='reel-video-renderer']") || document;
+      const videoEl = reel.querySelector ? reel.querySelector("video") : document.querySelector("video");
+
+      const btnWrapper = document.createElement("div");
+      btnWrapper.className = "clip-shorts-action-wrapper";
+      if (!isCompanionActive) btnWrapper.classList.add("clip-paused");
+      btnWrapper.title = isCompanionActive
+        ? "CLIP — Shorts'u Panoya Kopyala (WhatsApp / Discord)"
+        : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
+      btnWrapper.innerHTML = `
+        <div class="clip-shorts-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>
+      `;
+
+      btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
+      btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
+      btnWrapper.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const curVideo = (reel.querySelector ? reel.querySelector("video") : null) || videoEl || document.querySelector("video");
+        const exactUrl = findYouTubeShortsUrl(reel, curVideo);
+        console.log("⚡ [CLIP] YouTube Shorts captured URL:", exactUrl);
+
+        triggerCapture(btnWrapper, curVideo, "shorts", exactUrl);
+      });
+
+      targetUnit.insertAdjacentElement("beforebegin", btnWrapper);
+    });
+
+    // Strategy 2: Target all #actions columns on Shorts
+    const actionContainers = document.querySelectorAll(
+      "ytd-reel-player-overlay-renderer #actions, " +
+      "ytd-reel-video-renderer #actions, " +
+      "ytd-shorts #actions"
+    );
+
+    actionContainers.forEach(container => {
+      if (container.querySelector(".clip-shorts-action-wrapper")) return;
+
+      const reel = container.closest("ytd-reel-video-renderer, ytm-reel-item-renderer, ytd-shorts") || document;
+      const videoEl = reel.querySelector ? reel.querySelector("video") : document.querySelector("video");
+
+      const btnWrapper = document.createElement("div");
+      btnWrapper.className = "clip-shorts-action-wrapper";
+      if (!isCompanionActive) btnWrapper.classList.add("clip-paused");
+      btnWrapper.title = isCompanionActive
+        ? "CLIP — Shorts'u Panoya Kopyala (WhatsApp / Discord)"
+        : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
+      btnWrapper.innerHTML = `
+        <div class="clip-shorts-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>
+      `;
+
+      btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
+      btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
+      btnWrapper.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const curVideo = (reel.querySelector ? reel.querySelector("video") : null) || videoEl || document.querySelector("video");
+        const exactUrl = findYouTubeShortsUrl(reel, curVideo);
+        console.log("⚡ [CLIP] YouTube Shorts captured URL:", exactUrl);
+
+        triggerCapture(btnWrapper, curVideo, "shorts", exactUrl);
+      });
+
+      container.insertAdjacentElement("afterbegin", btnWrapper);
+    });
+  }
+
+  /**
+   * 6. YouTube Horizontal Video Adapter (/watch)
+   * Places a 100% native-matching pill button right next to the Like/Dislike segmented button.
+   * Clicking it opens a compact, floating trimmer flyout panel to select time and copy to clipboard.
+   */
+  function handleYouTubeWatch() {
+    if (!window.location.hostname.includes("youtube.com")) return;
+
+    const isWatch = window.location.pathname.startsWith("/watch") || window.location.search.includes("v=");
+    if (!isWatch) {
+      document.querySelectorAll(".clip-yt-watch-btn-wrapper").forEach(el => el.remove());
+      return;
+    }
+
+    // Clean up any stray Shorts buttons that shouldn't be here
+    document.querySelectorAll(".clip-shorts-action-wrapper").forEach(el => el.remove());
+
+    // Target the primary action buttons container on YouTube
+    const topLevelButtons = document.querySelector(
+      "ytd-watch-metadata #top-level-buttons-computed, " +
+      "#actions-inner #top-level-buttons-computed, " +
+      "#actions #top-level-buttons-computed, " +
+      "#top-level-buttons-computed"
+    );
+
+    if (!topLevelButtons) return;
+
+    // Check if button already injected
+    if (topLevelButtons.querySelector(".clip-yt-watch-btn-wrapper")) return;
+
+    // Find Like/Dislike segmented button
+    const likeSegment = topLevelButtons.querySelector(
+      "segmented-like-dislike-button-view-model, " +
+      "ytd-segmented-like-dislike-button-renderer, " +
+      "like-button-view-model, " +
+      "#segmented-like-button"
+    );
+
+    const btnWrapper = document.createElement("div");
+    btnWrapper.className = "clip-yt-watch-btn-wrapper";
+
+    const watchBtn = document.createElement("button");
+    watchBtn.className = "clip-yt-watch-btn";
+    if (!isCompanionActive) watchBtn.classList.add("clip-paused");
+    watchBtn.setAttribute("type", "button");
+    watchBtn.setAttribute("aria-label", "Klip Al (CLIP)");
+    watchBtn.title = "CLIP — Videodan klip kırpıp panoya kopyala";
+    watchBtn.innerHTML = `
+      <span class="clip-yt-watch-icon">${ICONS.bolt}</span>
+      <span class="clip-yt-watch-label">Klip Al</span>
+    `;
+
+    watchBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+    watchBtn.addEventListener("mousedown", (e) => e.stopPropagation());
+    watchBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleYouTubeWatchTrimmer(btnWrapper);
+    });
+
+    btnWrapper.appendChild(watchBtn);
+
+    // Place right next to the Like/Dislike segmented button
+    if (likeSegment && likeSegment.parentNode === topLevelButtons) {
+      likeSegment.insertAdjacentElement("afterend", btnWrapper);
+    } else {
+      topLevelButtons.insertAdjacentElement("afterbegin", btnWrapper);
+    }
+  }
+
+  /**
+   * Compact Floating Clipper Flyout for YouTube Watch Videos
+   */
+  function toggleYouTubeWatchTrimmer(btnWrapper) {
+    const existingFlyout = document.querySelector(".clip-yt-flyout-panel");
+    const watchBtn = btnWrapper.querySelector(".clip-yt-watch-btn");
+
+    if (existingFlyout) {
+      existingFlyout.remove();
+      if (watchBtn) watchBtn.classList.remove("active");
+      return;
+    }
+
+    if (watchBtn) watchBtn.classList.add("active");
+
+    const videoEl = document.querySelector("ytd-watch-flexy video, #movie_player video, video");
+    const curTime = videoEl ? (videoEl.currentTime || 0) : 0;
+
+    // Initial default: Last 30 seconds ending at current time
+    let initEnd = Math.max(1, Math.floor(curTime));
+    if (initEnd <= 0) initEnd = 30;
+    let initStart = Math.max(0, initEnd - 30);
+
+    const flyout = document.createElement("div");
+    flyout.className = "clip-yt-flyout-panel";
+
+    // Fixed coordinates relative to watchBtn to avoid any parent overflow:hidden clipping
+    try {
+      const rect = watchBtn.getBoundingClientRect();
+      flyout.style.position = "fixed";
+      flyout.style.top = (rect.bottom + 8) + "px";
+      if (rect.right + 250 > window.innerWidth) {
+        flyout.style.left = Math.max(12, rect.right - 360) + "px";
+      } else {
+        flyout.style.left = rect.left + "px";
+      }
+      flyout.style.zIndex = "2147483647";
+    } catch (_) {}
+
+    flyout.innerHTML = `
+      <div class="clip-flyout-header">
+        <div class="clip-flyout-title">
+          <span class="clip-flyout-bolt">${ICONS.bolt}</span>
+          <span>Klip Al (CLIP)</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="clip-flyout-time-tag" id="clip-cur-time-display">${formatTime(curTime)}</span>
+          <button class="clip-flyout-close" type="button" title="Kapat">✕</button>
+        </div>
+      </div>
+
+      <div class="clip-flyout-presets-label">Hızlı Süre Seçimi (Şu ana kadar):</div>
+      <div class="clip-flyout-presets">
+        <button type="button" class="clip-preset-pill" data-preset="15">Son 15s</button>
+        <button type="button" class="clip-preset-pill active" data-preset="30">Son 30s</button>
+        <button type="button" class="clip-preset-pill" data-preset="60">Son 60s</button>
+        <button type="button" class="clip-preset-pill" data-preset="120">Son 2dk</button>
+      </div>
+
+      <div class="clip-flyout-range-grid">
+        <div class="clip-time-col">
+          <label>Başlangıç</label>
+          <div class="clip-time-input-group">
+            <input type="text" class="clip-time-inp" id="clip-start-inp" value="${formatTime(initStart)}" placeholder="00:00">
+            <button type="button" class="clip-time-snap-btn" id="clip-snap-start" title="Videonun şu anki saniyesini başlangıç yap">🎯 Şimdi</button>
+          </div>
+        </div>
+        <div class="clip-time-col">
+          <label>Bitiş</label>
+          <div class="clip-time-input-group">
+            <input type="text" class="clip-time-inp" id="clip-end-inp" value="${formatTime(initEnd)}" placeholder="00:30">
+            <button type="button" class="clip-time-snap-btn" id="clip-snap-end" title="Videonun şu anki saniyesini bitiş yap">🎯 Şimdi</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="clip-flyout-summary">
+        <span id="clip-duration-summary">⏱️ Klip Süresi: <strong>30 sn</strong></span>
+        <span class="clip-summary-compat">✓ WhatsApp / Discord</span>
+      </div>
+
+      <button type="button" class="clip-flyout-submit-btn" id="clip-flyout-submit">
+        <span class="clip-submit-icon">${ICONS.bolt}</span>
+        <span class="clip-submit-text">Klibi Kopyala (Panoya Al)</span>
+      </button>
+    `;
+
+    // Event Listeners for Flyout
+    flyout.addEventListener("pointerdown", (e) => e.stopPropagation());
+    flyout.addEventListener("mousedown", (e) => e.stopPropagation());
+    flyout.addEventListener("click", (e) => e.stopPropagation());
+
+    const closeBtn = flyout.querySelector(".clip-flyout-close");
+    closeBtn.addEventListener("click", () => {
+      flyout.remove();
+      if (watchBtn) watchBtn.classList.remove("active");
+    });
+
+    const startInp = flyout.querySelector("#clip-start-inp");
+    const endInp = flyout.querySelector("#clip-end-inp");
+    const durationSummary = flyout.querySelector("#clip-duration-summary");
+    const presetPills = flyout.querySelectorAll(".clip-preset-pill");
+    const submitBtn = flyout.querySelector("#clip-flyout-submit");
+    const curTimeDisplay = flyout.querySelector("#clip-cur-time-display");
+
+    function updateSummary() {
+      const s = parseTimeToSeconds(startInp.value);
+      const e = parseTimeToSeconds(endInp.value);
+      const diff = Math.max(0, e - s);
+      const diffStr = diff >= 60 ? `${Math.floor(diff / 60)} dk ${Math.floor(diff % 60)} sn` : `${Math.floor(diff)} sn`;
+      durationSummary.innerHTML = `⏱️ Klip Süresi: <strong>${diffStr}</strong>`;
+    }
+
+    // Time update ticker for header display
+    const ticker = setInterval(() => {
+      if (!document.body.contains(flyout)) {
+        clearInterval(ticker);
+        return;
+      }
+      if (videoEl && curTimeDisplay) {
+        curTimeDisplay.textContent = formatTime(videoEl.currentTime || 0);
+      }
+    }, 500);
+
+    // Preset Buttons
+    presetPills.forEach(pill => {
+      pill.addEventListener("click", () => {
+        presetPills.forEach(p => p.classList.remove("active"));
+        pill.classList.add("active");
+        const secs = parseInt(pill.getAttribute("data-preset"), 10);
+        const cur = videoEl ? (videoEl.currentTime || 0) : curTime;
+        const e = Math.max(1, Math.floor(cur));
+        const s = Math.max(0, e - secs);
+        startInp.value = formatTime(s);
+        endInp.value = formatTime(e);
+        updateSummary();
+      });
+    });
+
+    // Snap Buttons
+    flyout.querySelector("#clip-snap-start").addEventListener("click", () => {
+      presetPills.forEach(p => p.classList.remove("active"));
+      const cur = videoEl ? (videoEl.currentTime || 0) : 0;
+      startInp.value = formatTime(cur);
+      updateSummary();
+    });
+
+    flyout.querySelector("#clip-snap-end").addEventListener("click", () => {
+      presetPills.forEach(p => p.classList.remove("active"));
+      const cur = videoEl ? (videoEl.currentTime || 0) : 0;
+      endInp.value = formatTime(cur);
+      updateSummary();
+    });
+
+    startInp.addEventListener("input", () => {
+      presetPills.forEach(p => p.classList.remove("active"));
+      updateSummary();
+    });
+    endInp.addEventListener("input", () => {
+      presetPills.forEach(p => p.classList.remove("active"));
+      updateSummary();
+    });
+
+    // Submit Action
+    submitBtn.addEventListener("click", () => {
+      const s = parseTimeToSeconds(startInp.value);
+      const e = parseTimeToSeconds(endInp.value);
+
+      if (e <= s) {
+        alert("Bitiş süresi başlangıç süresinden büyük olmalıdır!");
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.querySelector(".clip-submit-icon").innerHTML = ICONS.spinner;
+      submitBtn.querySelector(".clip-submit-text").textContent = "Klip Çıkarılıyor & Panoya Alınıyor...";
+
+      const cleanUrl = window.location.href.split("&")[0];
+      console.log("⚡ [CLIP] Trimming YouTube clip:", cleanUrl, s, e);
+
+      triggerCapture(btnWrapper, videoEl, "youtube", cleanUrl, s, e);
+
+      // Close flyout after initiating capture
+      setTimeout(() => {
+        flyout.remove();
+        if (watchBtn) watchBtn.classList.remove("active");
+      }, 1200);
+    });
+
+    document.body.appendChild(flyout);
+
+    // Click outside listener to dismiss
+    const onOutsideClick = (e) => {
+      if (!flyout.contains(e.target) && !watchBtn.contains(e.target)) {
+        flyout.remove();
+        if (watchBtn) watchBtn.classList.remove("active");
+        document.removeEventListener("pointerdown", onOutsideClick);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener("pointerdown", onOutsideClick);
+    }, 100);
+  }
+
 
 
   /**
@@ -633,29 +970,17 @@
     console.log("⚡ [CLIP] Capturing video...", platform, exactUrl, startTime, endTime);
 
     const hasTimeRange = startTime !== undefined && startTime !== null && endTime !== undefined && endTime !== null;
-    const isPro = await checkIsPro();
-
-    if (hasTimeRange) {
-      const segDuration = endTime - startTime;
-      if (!isPro && segDuration > 61) {
-        showProModal(Math.round(segDuration), targetWrapper, videoEl, platform, exactUrl);
-        return;
-      }
-    } else {
-      if (!isPro && videoEl && !isNaN(videoEl.duration) && videoEl.duration > 61) {
-        showProModal(Math.round(videoEl.duration), targetWrapper, videoEl, platform, exactUrl);
-        return;
-      }
-    }
 
     if (targetWrapper.getAttribute("data-loading") === "true") return;
     targetWrapper.setAttribute("data-loading", "true");
 
     const circle = targetWrapper.querySelector(".clip-shorts-action-circle, .clip-tiktok-action-circle, .clip-action-circle, .clip-x-action-circle");
     const boltIcon = targetWrapper.querySelector(".clip-ext-icon-bolt");
+    const watchIcon = targetWrapper.querySelector(".clip-yt-watch-icon");
 
     if (circle) circle.innerHTML = ICONS.spinner;
     if (boltIcon) boltIcon.innerHTML = ICONS.spinner;
+    if (watchIcon) watchIcon.innerHTML = ICONS.spinner;
 
     const targetUrl = exactUrl || window.location.href;
     const domSrc = videoEl ? (videoEl.currentSrc || videoEl.src) : null;
@@ -683,12 +1008,6 @@
           clearTimeout(safetyTimeout);
           targetWrapper.removeAttribute("data-loading");
 
-          if (response && response.isProRequired) {
-            resetButtonState(targetWrapper);
-            showProModal(response.duration || 60, targetWrapper, videoEl, platform, exactUrl);
-            return;
-          }
-
           if (chrome.runtime.lastError || !response || !response.success) {
             const errText = (response && response.error) ? response.error : (chrome.runtime.lastError ? chrome.runtime.lastError.message : "Video yakalanamadı. 'start_clip.bat' servisini kontrol edin.");
             showDynamicIslandMessage(`⚠️ ${errText}`);
@@ -698,6 +1017,7 @@
 
           if (circle) circle.innerHTML = ICONS.check;
           if (boltIcon) boltIcon.innerHTML = ICONS.check;
+          if (watchIcon) watchIcon.innerHTML = ICONS.check;
 
           // Helper servisi çalışıyorsa clipboard'a kopyalandı, yoksa otomatik indir
           const clipboardReady = !!response.clipboardCopied;
@@ -735,11 +1055,14 @@
   }
 
   function resetButtonState(targetWrapper) {
+    if (!targetWrapper) return;
     const circle = targetWrapper.querySelector(".clip-shorts-action-circle, .clip-tiktok-action-circle, .clip-action-circle, .clip-x-action-circle");
     const boltIcon = targetWrapper.querySelector(".clip-ext-icon-bolt");
+    const watchIcon = targetWrapper.querySelector(".clip-yt-watch-icon");
 
     if (circle) circle.innerHTML = ICONS.bolt;
     if (boltIcon) boltIcon.innerHTML = ICONS.bolt;
+    if (watchIcon) watchIcon.innerHTML = ICONS.bolt;
   }
 
   /**
@@ -902,78 +1225,6 @@
     }, 4500);
   }
 
-  function showProModal(durationSec, targetWrapper, videoEl, platform, exactUrl) {
-    const existing = document.getElementById("clip-pro-modal-overlay");
-    if (existing) existing.remove();
-
-    const formattedTime = durationSec ? `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, "0")}` : "1:00+";
-
-    const overlay = document.createElement("div");
-    overlay.id = "clip-pro-modal-overlay";
-    overlay.className = "clip-pro-overlay";
-
-    overlay.innerHTML = `
-      <div class="clip-pro-card">
-        <div class="clip-pro-badge">${ICONS.star} DİKEY KISA İÇERİK PLANI (MAKS. 60 SN)</div>
-        <h3 class="clip-pro-title">Bu Video 1 Dakikadan Uzun (${formattedTime})</h3>
-        <p class="clip-pro-desc">
-          CLIP ücretsiz sürümü <strong>TikTok, Instagram Reels, X</strong> gibi kısa videolar için optimize edilmiştir (maksimum 60 saniye).
-        </p>
-        
-        <div class="clip-pro-features">
-          <div class="clip-pro-feature-item">
-            <span class="clip-pro-feature-icon">✓</span>
-            <span>1 dakikadan uzun videolar, podcastler ve uzun klipler</span>
-          </div>
-          <div class="clip-pro-feature-item">
-            <span class="clip-pro-feature-icon">✓</span>
-            <span>1080p Ultra HD doğrudan panoya kopyalama</span>
-          </div>
-          <div class="clip-pro-feature-item">
-            <span class="clip-pro-feature-icon">✓</span>
-            <span>Sınırsız eşzamanlı dönüştürme ve hızlı işleme</span>
-          </div>
-        </div>
-
-        <div class="clip-pro-actions">
-          <button class="clip-pro-primary-btn" id="clip-pro-buy-btn">
-            ⭐ CLIP PRO'ya Yükselt
-          </button>
-          <button class="clip-pro-trial-btn" id="clip-pro-trial-btn">
-            🎁 PRO Modunu Aktif Et (Test / Geliştirici Modu)
-          </button>
-          <button class="clip-pro-cancel-btn" id="clip-pro-close-btn">
-            Şimdilik Kapat
-          </button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    overlay.querySelector("#clip-pro-close-btn").addEventListener("click", () => {
-      overlay.remove();
-      if (targetWrapper) resetButtonState(targetWrapper);
-    });
-
-    overlay.querySelector("#clip-pro-buy-btn").addEventListener("click", () => {
-      showDynamicIslandMessage("🚀 CLIP PRO yakında! Şimdilik 'PRO Modunu Aktif Et' butonuna basarak deneyebilirsiniz.");
-    });
-
-    overlay.querySelector("#clip-pro-trial-btn").addEventListener("click", async () => {
-      const data = await chrome.storage.local.get("settings");
-      const current = data.settings || {};
-      current.isPro = true;
-      await chrome.storage.local.set({ settings: current });
-      overlay.remove();
-      showDynamicIslandMessage("✨ CLIP PRO aktif edildi! Video hazırlanıyor...");
-
-      if (targetWrapper) {
-        triggerCapture(targetWrapper, videoEl, platform, exactUrl);
-      }
-    });
-  }
-
   /* ==========================================================================
      Intelligent Scroll-Aware Engine (Zero Layout Shifts / Zero Scroll Glitches)
      ========================================================================== */
@@ -1016,6 +1267,8 @@
     handleTikTok();
     handleInstagram();
     handleTwitter();
+    handleYouTubeShorts();
+    handleYouTubeWatch();
   }
 
   // Initial delayed scan
@@ -1036,7 +1289,7 @@
         const active = data.active !== false;
         if (isCompanionActive !== active) {
           isCompanionActive = active;
-          document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-reels-action-wrapper, .clip-x-action-wrapper").forEach(el => {
+          document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-reels-action-wrapper, .clip-shorts-action-wrapper, .clip-x-action-wrapper, .clip-yt-watch-btn").forEach(el => {
             el.classList.toggle("clip-paused", !isCompanionActive);
             el.title = isCompanionActive 
               ? "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)" 
@@ -1054,6 +1307,14 @@
     scheduleScan(250);
   });
   window.__CLIP_OBSERVER__.observe(document.body || document.documentElement, { childList: true, subtree: true });
+
+  // YouTube SPA & Playback hooks for instant button appearance
+  window.addEventListener("yt-navigate-finish", () => scheduleScan(50));
+  window.addEventListener("yt-page-data-updated", () => scheduleScan(80));
+  window.addEventListener("yt-action", () => scheduleScan(80));
+  document.addEventListener("play", () => scheduleScan(50), true);
+  document.addEventListener("playing", () => scheduleScan(50), true);
+  document.addEventListener("canplay", () => scheduleScan(50), true);
 
   // SPA Navigation hooks (TikTok search -> video modal -> feed)
   const cleanTikTokButtons = () => {

@@ -1,113 +1,120 @@
 /**
- * CLIP — Universal Video Clipboard
- * Extension Popup Logic
+ * CLIP — Modern Minimalist Popup Controller
  */
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // DOM Elements
   const urlInput = document.getElementById("video-url-input");
   const pasteBtn = document.getElementById("paste-btn");
+  const clearInputBtn = document.getElementById("clear-input-btn");
   const processBtn = document.getElementById("process-btn");
+
   const inputSection = document.getElementById("input-section");
   const processingSection = document.getElementById("processing-section");
   const readySection = document.getElementById("ready-section");
   const previewVideo = document.getElementById("preview-video");
   const dragZone = document.getElementById("popup-drag-zone");
+
   const actionDownloadBtn = document.getElementById("action-download-btn");
+  const actionFolderBtn = document.getElementById("action-folder-btn");
   const actionRecopyBtn = document.getElementById("action-recopy-btn");
   const actionNewBtn = document.getElementById("action-new-btn");
+
   const historyList = document.getElementById("history-list");
   const clearHistoryBtn = document.getElementById("clear-history-btn");
-  const platformChips = document.querySelectorAll(".chip");
-  const proTogglePill = document.getElementById("pro-toggle-pill");
-  const proText = document.getElementById("pro-text");
-  const proDot = document.getElementById("pro-dot");
+
+  const statusDot = document.getElementById("status-dot");
+  const statusText = document.getElementById("status-text");
+  const openFolderBtn = document.getElementById("open-folder-btn");
+  const openWizardBtn = document.getElementById("open-wizard-btn");
 
   let currentResolvedData = null;
 
-  // Platform detection helper
+  const PLATFORMS = {
+    shorts: { name: "YouTube", icon: "▶", matches: (u) => u.includes("youtube.com") || u.includes("youtu.be") },
+    tiktok: { name: "TikTok", icon: "♪", matches: (u) => u.includes("tiktok.com") },
+    instagram: { name: "Instagram", icon: "◎", matches: (u) => u.includes("instagram.com") },
+    x: { name: "X", icon: "𝕏", matches: (u) => u.includes("twitter.com") || u.includes("x.com") }
+  };
+
   function detectPlatform(url) {
     const u = (url || "").toLowerCase();
-    if (u.includes("tiktok.com")) return "tiktok";
-    if (u.includes("instagram.com")) return "instagram";
-    if (u.includes("twitter.com") || u.includes("x.com")) return "x";
+    for (const [key, p] of Object.entries(PLATFORMS)) {
+      if (p.matches(u)) return { key, ...p };
+    }
     return null;
   }
 
-  function updatePlatformChips(url) {
-    const platform = detectPlatform(url);
-    platformChips.forEach(chip => {
-      if (chip.getAttribute("data-platform") === platform) {
-        chip.classList.add("active");
-      } else {
-        chip.classList.remove("active");
-      }
+  urlInput.addEventListener("input", (e) => {
+    if (clearInputBtn) clearInputBtn.style.display = e.target.value.trim() ? "block" : "none";
+  });
+
+  if (clearInputBtn) {
+    clearInputBtn.addEventListener("click", () => {
+      urlInput.value = "";
+      clearInputBtn.style.display = "none";
+      urlInput.focus();
     });
   }
 
-  urlInput.addEventListener("input", (e) => {
-    updatePlatformChips(e.target.value);
-  });
-
-  async function updateProUI() {
-    const data = await chrome.storage.local.get("settings");
-    const isPro = data?.settings?.isPro === true;
-    if (proText && proDot) {
-      if (isPro) {
-        proText.textContent = "⭐ PRO";
-        proText.style.color = "#fbbf24";
-        proDot.style.background = "#fbbf24";
-        if (proTogglePill) proTogglePill.style.borderColor = "rgba(251, 191, 36, 0.5)";
-      } else {
-        proText.textContent = "Free (60s)";
-        proText.style.color = "#e9d5ff";
-        proDot.style.background = "#a855f7";
-        if (proTogglePill) proTogglePill.style.borderColor = "rgba(168, 85, 247, 0.3)";
+  // Health check
+  async function checkCompanionStatus() {
+    try {
+      const res = await fetch("http://127.0.0.1:48123/health", { signal: AbortSignal.timeout(1000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.active !== false) {
+          if (statusText) statusText.textContent = "Hazır";
+          if (statusDot) {
+            statusDot.className = "status-pulse";
+            statusDot.style.background = "#10b981";
+          }
+        } else {
+          if (statusText) statusText.textContent = "Duraklatıldı";
+          if (statusDot) {
+            statusDot.className = "status-pulse offline";
+            statusDot.style.background = "#f59e0b";
+          }
+        }
+        return;
       }
+    } catch (_) {}
+
+    if (statusText) statusText.textContent = "Kapalı";
+    if (statusDot) {
+      statusDot.className = "status-pulse offline";
+      statusDot.style.background = "#ef4444";
     }
   }
 
-  await updateProUI();
+  await checkCompanionStatus();
 
-  if (proTogglePill) {
-    proTogglePill.addEventListener("click", async () => {
-      const data = await chrome.storage.local.get("settings");
-      const current = data?.settings || {};
-      current.isPro = !current.isPro;
-      await chrome.storage.local.set({ settings: current });
-      await updateProUI();
-    });
-  }
-
-  // Auto-detect active tab URL
+  // Tab auto-detect
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab && tab.url) {
-      const activePlatform = detectPlatform(tab.url);
-      if (activePlatform) {
+      const p = detectPlatform(tab.url);
+      if (p) {
         urlInput.value = tab.url;
-        updatePlatformChips(tab.url);
+        if (clearInputBtn) clearInputBtn.style.display = "block";
       }
     }
-  } catch (err) {
-    console.warn("Tab URL query failed:", err);
-  }
+  } catch (_) {}
 
-  // Paste from clipboard button
+  // Paste shortcut
   pasteBtn.addEventListener("click", async () => {
     try {
       const text = await navigator.clipboard.readText();
       if (text) {
-        urlInput.value = text;
-        updatePlatformChips(text);
+        urlInput.value = text.trim();
+        if (clearInputBtn) clearInputBtn.style.display = "block";
         urlInput.focus();
       }
-    } catch (e) {
-      console.warn("Clipboard read permission:", e);
+    } catch (_) {
+      urlInput.focus();
     }
   });
 
-  // Process Video Handler
+  // Process Video
   async function handleProcessVideo() {
     const url = urlInput.value.trim();
     if (!url) {
@@ -123,14 +130,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       (response) => {
         processingSection.style.display = "none";
 
-        if (response && response.isProRequired) {
-          alert("⭐ Bu video 1 dakikadan uzun.\n\nCLIP ücretsiz sürümü dikey kısa içerikler (Shorts, TikTok, Reels, X) için 60 saniyeye kadar geçerlidir.\n\nSağ üstteki 'Free (60s)' butonuna basarak PRO modunu test amaçlı açabilirsiniz!");
-          inputSection.style.display = "flex";
-          return;
-        }
-
         if (chrome.runtime.lastError || !response || !response.success) {
-          alert((response && response.error) ? response.error : "Video çözülemedi. Lütfen 'start_clip.bat' servisinin açık olduğunu kontrol edin.");
+          alert((response && response.error) ? response.error : "Video indirilemedi. Lütfen masaüstü servisinin açık olduğunu kontrol edin.");
           inputSection.style.display = "flex";
           return;
         }
@@ -147,16 +148,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (e.key === "Enter") handleProcessVideo();
   });
 
-  // Show ready video section
+  // Ready State View
   function showReadyVideo(data) {
     readySection.style.display = "flex";
     previewVideo.src = data.videoUrl;
 
-    // Configure Draggable Zone
     dragZone.ondragstart = (e) => {
       dragZone.classList.add("dragging");
       const filename = data.filename || `CLIP_${data.platform || "video"}_${Date.now()}.mp4`;
-
       const downloadPayload = `video/mp4:${filename}:${data.videoUrl}`;
       e.dataTransfer.setData("DownloadURL", downloadPayload);
       e.dataTransfer.setData("text/uri-list", data.videoUrl);
@@ -169,7 +168,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
   }
 
-  // Action buttons
   actionDownloadBtn.addEventListener("click", () => {
     if (!currentResolvedData) return;
     chrome.runtime.sendMessage({
@@ -179,7 +177,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  const actionFolderBtn = document.getElementById("action-folder-btn");
   if (actionFolderBtn) {
     actionFolderBtn.addEventListener("click", () => {
       if (currentResolvedData && currentResolvedData.filePath) {
@@ -190,31 +187,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  const openFolderBtn = document.getElementById("open-folder-btn");
   if (openFolderBtn) {
     openFolderBtn.addEventListener("click", () => {
       fetch("http://127.0.0.1:48123/open_folder").catch(() => {});
     });
   }
 
+  if (openWizardBtn) {
+    openWizardBtn.addEventListener("click", () => {
+      fetch("http://127.0.0.1:48123/open_wizard").catch(() => {});
+    });
+  }
+
   actionRecopyBtn.addEventListener("click", async () => {
     if (!currentResolvedData) return;
-
     if (currentResolvedData.filePath) {
       try {
         await fetch(`http://127.0.0.1:48123/copy?path=${encodeURIComponent(currentResolvedData.filePath)}`);
-      } catch (err) {
-        console.warn("Copy to CF_HDROP failed:", err);
-      }
+      } catch (_) {}
     }
-
-    actionRecopyBtn.textContent = "✓ Kopyalandı!";
-    setTimeout(() => {
-      actionRecopyBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-        Tekrar Kopyala
-      `;
-    }, 1800);
+    actionRecopyBtn.textContent = "✓ Panoda!";
+    setTimeout(() => { actionRecopyBtn.textContent = "📋 Tekrar Kopyala"; }, 1600);
   });
 
   actionNewBtn.addEventListener("click", () => {
@@ -223,45 +216,69 @@ document.addEventListener("DOMContentLoaded", async () => {
     previewVideo.pause();
     previewVideo.src = "";
     urlInput.value = "";
-    updatePlatformChips("");
+    if (clearInputBtn) clearInputBtn.style.display = "none";
     currentResolvedData = null;
   });
 
-  // History Management
+  // Recent Clips History (Row-based list)
   async function loadHistory() {
     const { clipHistory = [] } = await chrome.storage.local.get("clipHistory");
     historyList.innerHTML = "";
 
     if (clipHistory.length === 0) {
       historyList.innerHTML = `
-        <div class="history-empty">
-          Henüz kopyalanan video yok. Videodaki ⚡ ikonuna basarak anında panoya alabilirsiniz.
+        <div class="empty-hint">
+          Henüz klip yok. Videolardaki ⚡ butonuna basarak anında panoya alabilirsiniz.
         </div>
       `;
       return;
     }
 
     clipHistory.forEach(item => {
-      const itemEl = document.createElement("div");
-      itemEl.className = "history-item";
+      const row = document.createElement("div");
+      row.className = "clip-row";
 
-      const timeAgo = formatTimeAgo(new Date(item.timestamp));
+      const pInfo = detectPlatform(item.url || item.sourceUrl || item.platform);
+      const icon = pInfo ? pInfo.icon : "⚡";
+      const timeAgo = formatTimeAgo(new Date(item.timestamp || Date.now()));
 
-      itemEl.innerHTML = `
-        <div class="history-item-left">
-          <span>⚡</span>
-          <span>${item.title || "Video"}</span>
+      row.innerHTML = `
+        <div class="row-left">
+          <span class="row-icon">${icon}</span>
+          <div class="row-meta">
+            <span class="row-title" title="${item.title || "Video"}">${item.title || "Video"}</span>
+            <span class="row-time">${timeAgo}</span>
+          </div>
         </div>
-        <button type="button" class="history-item-btn">Kullan</button>
+        <div class="row-actions">
+          <button type="button" class="row-btn" title="Panoya Kopyala">Kopyala</button>
+        </div>
       `;
 
-      itemEl.querySelector(".history-item-btn").addEventListener("click", () => {
+      row.addEventListener("click", async () => {
+        if (item.filePath) {
+          try {
+            await fetch(`http://127.0.0.1:48123/copy?path=${encodeURIComponent(item.filePath)}`);
+          } catch (_) {}
+        }
         showReadyVideo(item);
         currentResolvedData = item;
         inputSection.style.display = "none";
       });
 
-      historyList.appendChild(itemEl);
+      const copyBtn = row.querySelector(".row-btn");
+      copyBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (item.filePath) {
+          try {
+            await fetch(`http://127.0.0.1:48123/copy?path=${encodeURIComponent(item.filePath)}`);
+          } catch (_) {}
+        }
+        copyBtn.textContent = "✓ Panoda";
+        setTimeout(() => { copyBtn.textContent = "Kopyala"; }, 1500);
+      });
+
+      historyList.appendChild(row);
     });
   }
 
@@ -274,12 +291,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   function formatTimeAgo(date) {
-    const seconds = Math.floor((new Date() - date) / 1000);
-    if (seconds < 60) return "az önce";
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} dk önce`;
-    const hours = Math.floor(minutes / 60);
-    return `${hours} sa önce`;
+    const s = Math.floor((new Date() - date) / 1000);
+    if (s < 60) return "az önce";
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m} dk önce`;
+    const h = Math.floor(m / 60);
+    return `${h} sa önce`;
   }
 
   loadHistory();

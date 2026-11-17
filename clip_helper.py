@@ -457,19 +457,14 @@ def parse_time_sec(val):
     except ValueError:
         return None
 
-def download_video_ytdlp(url, is_pro=False, dom_src=None, start_time=None, end_time=None):
+def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_time=None):
     req_start_ts = time.time()
     clean_url = (url or "").strip()
-    print(f"⚡ [CLIP] Processing video: {clean_url} (Pro: {is_pro}, dom_src: {bool(dom_src)}, range: {start_time}-{end_time})")
+    print(f"⚡ [CLIP] Processing video: {clean_url} (dom_src: {bool(dom_src)}, range: {start_time}-{end_time})")
 
     start_sec = parse_time_sec(start_time)
     end_sec = parse_time_sec(end_time)
     has_time_range = start_sec is not None and end_sec is not None and end_sec > start_sec
-
-    if has_time_range:
-        clip_duration = end_sec - start_sec
-        if not is_pro and clip_duration > 61:
-            return {"error": "pro_required", "message": f"Kırpılan süre ({int(clip_duration)} sn) 1 dakikadan uzun. 1 dakikadan uzun klipler CLIP PRO gerektirir."}
 
     is_twitter = ("twitter.com" in clean_url or "x.com" in clean_url)
     is_instagram = "instagram.com" in clean_url
@@ -491,21 +486,20 @@ def download_video_ytdlp(url, is_pro=False, dom_src=None, start_time=None, end_t
 
     # 3. If it's a generic feed URL without ID and no direct stream
     has_ig_shortcode = bool(re.search(r'instagram\.com/(?:reel|reels|p|tv)/([A-Za-z0-9_-]{9,15})', clean_url))
+    has_yt_id = bool(re.search(r'(?:shorts/|v=|youtu\.be/)([a-zA-Z0-9_-]{11})', clean_url))
     is_generic_feed = (
         ("tiktok.com" in clean_url and not "/video/" in clean_url) or
         ("instagram.com" in clean_url and not has_ig_shortcode) or
-        (clean_url.rstrip("/").endswith("tiktok.com") or clean_url.rstrip("/").endswith("instagram.com"))
+        (("youtube.com" in clean_url or "youtu.be" in clean_url) and not has_yt_id) or
+        (clean_url.rstrip("/").endswith("tiktok.com") or clean_url.rstrip("/").endswith("instagram.com") or clean_url.rstrip("/").endswith("youtube.com"))
     )
     if is_generic_feed and (not dom_src or dom_src.startswith("blob:")):
         return {"error": "feed_url", "message": "Video akışı tespit edilemedi. Lütfen videodaki CLIP butonuna tekrar basın."}
 
     out_template = os.path.join(CLIP_DIR, "%(id)s_%(epoch)s.%(ext)s")
 
-    video_format = (
-        "bestvideo[vcodec^=avc][height<=1080]+bestaudio[acodec^=mp4a]/bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]/best"
-        if is_pro else
-        "bestvideo[vcodec^=avc][height<=720]+bestaudio[acodec^=mp4a]/bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4][height<=720]/best"
-    )
+    # Always best 1080p / HD H.264 + AAC
+    video_format = "bestvideo[vcodec^=avc][height<=1080]+bestaudio[acodec^=mp4a]/bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]/best"
 
     cmd = [
         sys.executable,
@@ -521,12 +515,14 @@ def download_video_ytdlp(url, is_pro=False, dom_src=None, start_time=None, end_t
         "--print", "after_move:filepath",
     ]
 
-    # Enforce section or full video limits
+    # Enable Node.js runtime for solving YouTube JS challenges if installed
+    if shutil.which("node"):
+        cmd.extend(["--js-runtimes", "node"])
+
+    # Enforce section limits if user specifically trimmed
     if has_time_range:
         section_str = f"*{int(start_sec)}-{int(end_sec)}"
         cmd.extend(["--download-sections", section_str, "--force-keyframes-at-cuts"])
-    elif not is_pro:
-        cmd.extend(["--match-filter", "duration <=? 60"])
 
     if FFMPEG_PATH:
         cmd.extend(["--ffmpeg-location", FFMPEG_PATH])
@@ -536,24 +532,14 @@ def download_video_ytdlp(url, is_pro=False, dom_src=None, start_time=None, end_t
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        combined_output = (result.stdout or "") + (result.stderr or "")
-        if "does not pass filter" in combined_output or "skipping" in combined_output:
-            return {"error": "pro_required", "message": "Bu video 1 dakikadan uzun. 1 dakikadan uzun videolar CLIP PRO gerektirir."}
-
         out_path = result.stdout.strip().splitlines()[-1] if result.stdout and result.stdout.strip() else None
         if out_path and os.path.exists(out_path):
             final_file = ensure_whatsapp_compatible(out_path)
             if final_file and os.path.exists(final_file):
                 copy_file_to_windows_clipboard(final_file)
                 return {"path": final_file}
-
-        if not is_pro and not out_path:
-            return {"error": "pro_required", "message": "Bu video 1 dakikadan uzun. 1 dakikadan uzun videolar CLIP PRO gerektirir."}
     except subprocess.CalledProcessError as e:
         print(f"⚠️ [CLIP] Error during yt-dlp execution:\n{e.stderr}")
-        err_out = (e.stdout or "") + (e.stderr or "")
-        if "does not pass filter" in err_out or "skipping" in err_out:
-            return {"error": "pro_required", "message": "Bu video 1 dakikadan uzun. 1 dakikadan uzun videolar CLIP PRO gerektirir."}
 
         # Fallback for Twitter (X): vxTwitter API
         if is_twitter:
@@ -632,6 +618,21 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
             return
 
+        if parsed.path == "/open_wizard":
+            try:
+                subprocess.Popen([sys.executable, os.path.join(current_dir, "setup_wizard.py")])
+                self.send_response(200)
+                self.send_cors_headers()
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"success": true}')
+            except Exception as e:
+                self.send_response(500)
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+            return
+
         if parsed.path == "/open_file":
             query = urllib.parse.parse_qs(parsed.query)
             path = query.get("path", [None])[0]
@@ -696,14 +697,7 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(b'{"error": "No URL or stream provided"}')
                 return
 
-            res = download_video_ytdlp(url or dom_src, is_pro=is_pro, dom_src=dom_src, start_time=start_time, end_time=end_time)
-            if isinstance(res, dict) and res.get("error") == "pro_required":
-                self.send_response(200)
-                self.send_cors_headers()
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "isProRequired": True, "error": res["message"]}).encode())
-                return
+            res = download_video_ytdlp(url or dom_src, is_pro=True, dom_src=dom_src, start_time=start_time, end_time=end_time)
 
             if isinstance(res, dict) and res.get("error") == "feed_url":
                 self.send_response(200)
@@ -803,6 +797,14 @@ def setup_tray(server):
             else:
                 notify_user("CLIP", "Otomatik başlama kapatıldı.")
 
+        def on_open_setup(icon, item):
+            try:
+                setup_script = os.path.join(current_dir, "setup_wizard.py")
+                if os.path.exists(setup_script):
+                    subprocess.Popen([sys.executable, setup_script])
+            except Exception:
+                pass
+
         def on_exit(icon, item):
             icon.stop()
             try:
@@ -817,6 +819,7 @@ def setup_tray(server):
         menu = pystray.Menu(
             pystray.MenuItem(get_status_title, toggle_active_state, default=True),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem("⚙️ Kurulum Sihirbazı & Ayarlar", on_open_setup),
             pystray.MenuItem("📁 Klipler Klasörünü Aç (Temp)", on_open_folder),
             pystray.MenuItem("🚀 Bilgisayarla Birlikte Başlat", on_toggle_autostart, checked=lambda item: is_autostart_enabled()),
             pystray.MenuItem("🧹 Geçici Hafızayı Temizle", on_clean),
@@ -830,22 +833,39 @@ def setup_tray(server):
         print(f"Tray setup notice: {e}")
         return None
 
+def free_port_if_needed(port):
+    if not is_port_in_use(port):
+        return
+    try:
+        out = subprocess.check_output(f'netstat -ano | findstr :{port}', shell=True, text=True)
+        cur_pid = os.getpid()
+        for line in out.strip().splitlines():
+            parts = line.strip().split()
+            if len(parts) >= 5 and "LISTENING" in parts:
+                pid = int(parts[-1])
+                if pid != cur_pid:
+                    try:
+                        subprocess.run(f'taskkill /F /PID {pid}', shell=True, capture_output=True)
+                        time.sleep(0.4)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
 def main():
+    free_port_if_needed(PORT)
     if is_port_in_use(PORT):
-        print(f"⚡ [CLIP] Port {PORT} zaten kullanımda. Servis sistem tepsisinde aktif!")
-        try:
-            user32 = ctypes.windll.user32
-            user32.MessageBoxW(0, "CLIP zaten ekranın sağ altındaki Sistem Tepsisinde (System Tray) çalışıyor!", "CLIP", 0x40)
-        except Exception:
-            pass
+        print(f"⚡ [CLIP] Port {PORT} kullanımda.")
         return
 
     cleanup_temp_files()
     cleaner_thread = threading.Thread(target=periodic_cleanup_loop, daemon=True)
     cleaner_thread.start()
 
-    http.server.HTTPServer.allow_reuse_address = True
-    server = http.server.HTTPServer(("127.0.0.1", PORT), ClipHTTPHandler)
+    from http.server import ThreadingHTTPServer
+    ThreadingHTTPServer.allow_reuse_address = True
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), ClipHTTPHandler)
+    server.daemon_threads = True
 
     # Arka planda HTTP sunucusunu çalıştır
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -864,7 +884,7 @@ def main():
         def on_tray_ready(icon):
             icon.visible = True
             try:
-                icon.notify("CLIP Hazır! ⚡", "Sistem tepsisinde aktif. TikTok, Instagram ve X videoları tek tıkla panoya kopyalanabilir.")
+                icon.notify("CLIP Hazır! ⚡", "Sistem tepsisinde aktif. YouTube Shorts, TikTok, Instagram ve X videoları tek tıkla panoya kopyalanabilir.")
             except Exception:
                 pass
 
@@ -873,6 +893,15 @@ def main():
             tray.run(setup=on_tray_ready)
         except KeyboardInterrupt:
             tray.stop()
+            server.shutdown()
+            return
+        except Exception as e:
+            print(f"Tray run notice: {e}")
+
+        # Sistem tepsisi sonlansa veya kapatılsa bile HTTP sunucusunu ayakta tut
+        try:
+            server_thread.join()
+        except KeyboardInterrupt:
             server.shutdown()
     else:
         try:

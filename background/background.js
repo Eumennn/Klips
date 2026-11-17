@@ -20,7 +20,8 @@ async function injectIntoExistingTabs() {
         "*://*.tiktok.com/*",
         "*://*.instagram.com/*",
         "*://*.twitter.com/*",
-        "*://*.x.com/*"
+        "*://*.x.com/*",
+        "*://*.youtube.com/*"
       ]
     });
     for (const tab of tabs) {
@@ -140,27 +141,17 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
 
   // 1. Primary Engine: Local CLIP Helper Companion (port 48123)
   try {
-    const healthCheck = await fetch("http://127.0.0.1:48123/health", { signal: AbortSignal.timeout(600) });
+    const healthCheck = await fetch("http://127.0.0.1:48123/health", { signal: AbortSignal.timeout(2000) });
     if (healthCheck.ok) {
-      const storage = await chrome.storage.local.get("settings");
-      const isPro = storage?.settings?.isPro === true;
-      console.log(`⚡ [CLIP] Using local CLIP Helper service on port 48123 (Pro: ${isPro}, Range: ${startTime}-${endTime})...`);
+      console.log(`⚡ [CLIP] Using local CLIP Helper service on port 48123 (Range: ${startTime}-${endTime})...`);
       
-      let helperUrl = `http://127.0.0.1:48123/clip?url=${encodeURIComponent(cleanUrl)}&is_pro=${isPro ? "1" : "0"}&dom_src=${encodeURIComponent(effectiveDomSrc || "")}`;
+      let helperUrl = `http://127.0.0.1:48123/clip?url=${encodeURIComponent(cleanUrl)}&dom_src=${encodeURIComponent(effectiveDomSrc || "")}`;
       if (startTime !== undefined && startTime !== null && endTime !== undefined && endTime !== null) {
         helperUrl += `&start_time=${encodeURIComponent(startTime)}&end_time=${encodeURIComponent(endTime)}`;
       }
       const clipRes = await fetch(helperUrl);
       if (clipRes.ok) {
         const data = await clipRes.json();
-        if (data && data.isProRequired) {
-          return {
-            success: false,
-            isProRequired: true,
-            duration: data.duration,
-            error: data.error || "Bu video 1 dakikadan uzun. 1 dakikadan uzun videolar CLIP PRO gerektirir."
-          };
-        }
         if (data && data.success) {
           return {
             success: true,
@@ -272,6 +263,7 @@ function detectPlatform(url) {
     if (host.includes("tiktok.com")) return "tiktok";
     if (host.includes("instagram.com")) return "instagram";
     if (host.includes("twitter.com") || host.includes("x.com")) return "x";
+    if (host.includes("youtube.com") || host.includes("youtu.be")) return "shorts";
     return "other";
   } catch {
     return "other";
