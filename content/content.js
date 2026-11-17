@@ -730,20 +730,20 @@
     watchBtn.setAttribute("type", "button");
     watchBtn.setAttribute("aria-label", "Klip Al (CLIP)");
     watchBtn.title = "CLIP — Videodan klip kırpıp panoya kopyala";
-    watchBtn.style.cssText = "height: 36px !important; min-height: 36px !important; max-height: 36px !important; padding: 0 16px !important; border-radius: 18px !important; background: rgba(255, 255, 255, 0.1) !important; background-color: rgba(255, 255, 255, 0.1) !important; color: #f1f1f1 !important; fill: #f1f1f1 !important; border: none !important; outline: none !important; box-shadow: none !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; font-family: Roboto, Arial, sans-serif !important; font-size: 14px !important; font-weight: 500 !important; cursor: pointer !important; user-select: none !important; box-sizing: border-box !important; vertical-align: middle !important; transition: background-color 0.18s ease !important;";
+    watchBtn.style.cssText = "height: 36px !important; min-height: 36px !important; max-height: 36px !important; padding: 0 16px !important; border-radius: 18px !important; background: #350842 !important; background-color: #350842 !important; color: #ffffff !important; fill: #ffffff !important; border: none !important; border-width: 0 !important; outline: none !important; box-shadow: 0 1px 4px rgba(53, 8, 66, 0.4) !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; font-family: Roboto, Arial, sans-serif !important; font-size: 14px !important; font-weight: 500 !important; cursor: pointer !important; user-select: none !important; box-sizing: border-box !important; vertical-align: middle !important; transition: all 0.18s ease !important;";
     watchBtn.innerHTML = `
-      <span class="clip-yt-watch-icon">${ICONS.scissors}</span>
+      <span class="clip-yt-watch-icon" style="color:#f3e8ff !important;">${ICONS.scissors}</span>
       <span class="clip-yt-watch-label">Klip Al</span>
     `;
 
     watchBtn.addEventListener("mouseenter", () => {
       if (!watchBtn.classList.contains("active")) {
-        watchBtn.style.setProperty("background-color", "rgba(255, 255, 255, 0.2)", "important");
+        watchBtn.style.setProperty("background-color", "#4d0d60", "important");
       }
     });
     watchBtn.addEventListener("mouseleave", () => {
       if (!watchBtn.classList.contains("active")) {
-        watchBtn.style.setProperty("background-color", "rgba(255, 255, 255, 0.1)", "important");
+        watchBtn.style.setProperty("background-color", "#350842", "important");
       }
     });
 
@@ -777,10 +777,10 @@
     if (!watchBtn) return;
     if (isActive) {
       watchBtn.classList.add("active");
-      watchBtn.style.setProperty("background-color", "rgba(124, 58, 237, 0.3)", "important");
+      watchBtn.style.setProperty("background-color", "#6b1485", "important");
     } else {
       watchBtn.classList.remove("active");
-      watchBtn.style.setProperty("background-color", "rgba(255, 255, 255, 0.1)", "important");
+      watchBtn.style.setProperty("background-color", "#350842", "important");
     }
   }
 

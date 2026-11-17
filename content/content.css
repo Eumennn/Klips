@@ -256,7 +256,7 @@
   order: -1 !important;
 }
 
-/* YouTube'un kendi like-button segmented pill stili ile tam eşleşme */
+/* YouTube'un kendi like-button segmented pill stili ile tam eşleşme (#350842) */
 .clip-yt-watch-btn,
 button.clip-yt-watch-btn,
 div.clip-yt-watch-btn-wrapper button {
@@ -265,15 +265,15 @@ div.clip-yt-watch-btn-wrapper button {
   max-height: 36px !important;
   padding: 0 16px !important;
   border-radius: 18px !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  background-color: rgba(255, 255, 255, 0.1) !important;
-  color: #f1f1f1 !important;
-  fill: #f1f1f1 !important;
+  background: #350842 !important;
+  background-color: #350842 !important;
+  color: #ffffff !important;
+  fill: #ffffff !important;
   border: none !important;
   border-width: 0 !important;
   border-style: none !important;
   outline: none !important;
-  box-shadow: none !important;
+  box-shadow: 0 1px 4px rgba(53, 8, 66, 0.4) !important;
   -webkit-appearance: none !important;
   appearance: none !important;
   display: inline-flex !important;
@@ -286,34 +286,36 @@ div.clip-yt-watch-btn-wrapper button {
   cursor: pointer !important;
   user-select: none !important;
   box-sizing: border-box !important;
-  transition: background-color 0.18s ease !important;
+  transition: all 0.18s ease !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
   white-space: nowrap !important;
   vertical-align: middle !important;
 }
 
-/* YouTube dark mode ile tam eşleşme — yt[dark] ortamında */
+/* YouTube dark mode & theater ortamında */
 html[dark] .clip-yt-watch-btn,
 html[dark] button.clip-yt-watch-btn,
 ytd-watch-flexy[theater] .clip-yt-watch-btn {
-  background: rgba(255, 255, 255, 0.1) !important;
-  color: #f1f1f1 !important;
+  background: #350842 !important;
+  background-color: #350842 !important;
+  color: #ffffff !important;
 }
 
 .clip-yt-watch-btn:hover,
 button.clip-yt-watch-btn:hover,
 div.clip-yt-watch-btn-wrapper button:hover {
-  background: rgba(255, 255, 255, 0.2) !important;
-  background-color: rgba(255, 255, 255, 0.2) !important;
+  background: #4d0d60 !important;
+  background-color: #4d0d60 !important;
   color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(53, 8, 66, 0.6) !important;
 }
 
 .clip-yt-watch-btn.active,
 button.clip-yt-watch-btn.active {
-  background: rgba(124, 58, 237, 0.28) !important;
-  background-color: rgba(124, 58, 237, 0.28) !important;
-  color: #c4b5fd !important;
+  background: #6b1485 !important;
+  background-color: #6b1485 !important;
+  color: #ffffff !important;
 }
 
 .clip-yt-watch-btn.clip-paused {
@@ -327,7 +329,7 @@ button.clip-yt-watch-btn.active {
   justify-content: center !important;
   width: 18px !important;
   height: 18px !important;
-  color: #c084fc !important;
+  color: #f3e8ff !important;
   flex-shrink: 0 !important;
 }
 
