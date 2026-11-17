@@ -11,16 +11,17 @@
 </head>
 <body>
   <div class="app-shell">
-    <!-- Top Bar -->
+
+    <!-- Header -->
     <header class="app-header">
       <div class="brand">
         <div class="brand-badge">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
           </svg>
         </div>
         <span class="brand-name">CLIP</span>
-        <span class="brand-tag">v2.0</span>
+        <span class="brand-tag">v2.0.2</span>
       </div>
 
       <div class="status-pill" id="service-status-pill" title="Masaüstü Servis Durumu">
@@ -31,21 +32,22 @@
 
     <!-- Main -->
     <main class="app-main">
-      <!-- Command Input -->
+
+      <!-- URL Input Card -->
       <div class="cmd-bar" id="input-section">
         <div class="input-field-wrap">
           <span class="input-icon" id="cmd-platform-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
             </svg>
           </span>
-          <input 
-            type="url" 
-            id="video-url-input" 
-            class="input-elem" 
-            placeholder="Video bağlantısı yapıştırın..." 
-            autocomplete="off" 
+          <input
+            type="url"
+            id="video-url-input"
+            class="input-elem"
+            placeholder="Video bağlantısı yapıştırın..."
+            autocomplete="off"
             spellcheck="false"
           >
           <button type="button" id="paste-btn" class="paste-badge" title="Panodan Yapıştır">
@@ -56,7 +58,7 @@
 
         <button type="button" id="process-btn" class="primary-action-btn">
           <span class="btn-inner">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
             </svg>
             <span>Panoya Kopyala</span>
@@ -64,20 +66,20 @@
         </button>
       </div>
 
-      <!-- Processing -->
+      <!-- Processing State -->
       <div class="state-view processing" id="processing-section" style="display: none;">
         <div class="ring-spinner"></div>
         <div class="state-title">Video Hazırlanıyor...</div>
         <div class="state-sub">H.264 formatına dönüştürülüp panoya kopyalanıyor</div>
       </div>
 
-      <!-- Ready -->
+      <!-- Ready State -->
       <div class="state-view ready" id="ready-section" style="display: none;">
         <div class="success-callout">
           <span class="success-icon">✓</span>
           <div class="success-msg">
             <strong>Panoya Kopyalandı!</strong>
-            <span>Discord veya WhatsApp'a doğrudan <span class="paste-target-key">Ctrl+V</span> yapın</span>
+            <span>Discord veya WhatsApp'a <span class="paste-target-key">Ctrl+V</span> yapın</span>
           </div>
         </div>
 
@@ -90,17 +92,17 @@
         </div>
 
         <div class="tool-actions">
-          <button type="button" id="action-recopy-btn" class="tool-btn">📋 Tekrar Kopyala</button>
+          <button type="button" id="action-recopy-btn" class="tool-btn">📋 Tekrar</button>
           <button type="button" id="action-folder-btn" class="tool-btn">📁 Klasör</button>
           <button type="button" id="action-download-btn" class="tool-btn">💾 İndir</button>
           <button type="button" id="action-new-btn" class="tool-btn ghost">+ Yeni</button>
         </div>
       </div>
 
-      <!-- Recent History (Table / Menu style, zero boxy cards) -->
+      <!-- Recent History -->
       <section class="history-block">
         <div class="history-top">
-          <span class="history-label">SON KLİPLER</span>
+          <span class="history-label">Son Klipler</span>
           <button type="button" id="clear-history-btn" class="history-clear">Temizle</button>
         </div>
 
@@ -114,14 +116,14 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <span class="footer-left">Açık Kaynak & Limitsiz</span>
+      <span class="footer-left">Açık Kaynak &amp; Limitsiz</span>
       <div class="footer-right">
         <button type="button" id="open-folder-btn" class="footer-link">📁 Klasör</button>
         <button type="button" id="open-wizard-btn" class="footer-link">⚙️ Ayarlar</button>
       </div>
     </footer>
-  </div>
 
+  </div>
   <script src="popup.js"></script>
 </body>
 </html>

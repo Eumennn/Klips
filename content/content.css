@@ -326,6 +326,7 @@
   gap: 10px !important;
 /* ==========================================================================
    YouTube Horizontal Video Native Action Button & Compact Trimmer Flyout
+   Birebir YouTube like button stili — aynı boyut, rounding ve bounds
    ========================================================================== */
 .clip-yt-watch-btn-wrapper {
   display: inline-flex !important;
@@ -335,8 +336,10 @@
   vertical-align: middle !important;
   flex-shrink: 0 !important;
   z-index: 9999 !important;
+  order: -1 !important;
 }
 
+/* YouTube'un kendi like-button segmented pill stili ile tam eşleşme */
 .clip-yt-watch-btn,
 button.clip-yt-watch-btn,
 div.clip-yt-watch-btn-wrapper button {
@@ -363,6 +366,18 @@ div.clip-yt-watch-btn-wrapper button {
   user-select: none !important;
   box-sizing: border-box !important;
   transition: background-color 0.18s ease !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+
+/* YouTube dark mode ile tam eşleşme — yt[dark] ortamında */
+html[dark] .clip-yt-watch-btn,
+html[dark] button.clip-yt-watch-btn,
+ytd-watch-flexy[theater] .clip-yt-watch-btn {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #f1f1f1 !important;
 }
 
 .clip-yt-watch-btn:hover,
@@ -375,13 +390,13 @@ div.clip-yt-watch-btn-wrapper button:hover {
 
 .clip-yt-watch-btn.active,
 button.clip-yt-watch-btn.active {
-  background: rgba(124, 58, 237, 0.3) !important;
-  background-color: rgba(124, 58, 237, 0.3) !important;
-  color: #ffffff !important;
+  background: rgba(124, 58, 237, 0.28) !important;
+  background-color: rgba(124, 58, 237, 0.28) !important;
+  color: #c4b5fd !important;
 }
 
 .clip-yt-watch-btn.clip-paused {
-  opacity: 0.5 !important;
+  opacity: 0.45 !important;
   filter: grayscale(1) !important;
 }
 
@@ -392,13 +407,14 @@ button.clip-yt-watch-btn.active {
   width: 18px !important;
   height: 18px !important;
   color: #c084fc !important;
+  flex-shrink: 0 !important;
 }
 
 .clip-yt-watch-label {
   font-size: 14px !important;
   font-weight: 500 !important;
   line-height: 1 !important;
-  color: #f1f1f1 !important;
+  color: inherit !important;
 }
 
 /* Compact YouTube Trimmer Flyout Panel (Ufak & Kompakt & Slop Olmayan UI) */

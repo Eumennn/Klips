@@ -566,14 +566,23 @@
   function handleYouTubeShorts() {
     if (!window.location.hostname.includes("youtube.com")) return;
 
-    // On regular horizontal watch pages (/watch?v=...), clean up any Shorts buttons and return.
-    if (window.location.pathname.startsWith("/watch") || window.location.search.includes("v=")) {
+    // STRICT: Only run when actively on a YouTube Shorts page URL
+    const isShortsPage = window.location.pathname.startsWith("/shorts") || window.location.href.includes("/shorts/");
+    if (!isShortsPage) {
       document.querySelectorAll(".clip-shorts-action-wrapper").forEach(el => el.remove());
       return;
     }
 
-    const isShortsPage = window.location.href.includes("/shorts") || !!document.querySelector("ytd-shorts, ytd-reel-video-renderer");
-    if (!isShortsPage) return;
+    // Always clean up any rogue buttons inside comments, replies or engagement panels
+    document.querySelectorAll(
+      "#comments .clip-shorts-action-wrapper, " +
+      "ytd-comments .clip-shorts-action-wrapper, " +
+      "ytd-comment-view-model .clip-shorts-action-wrapper, " +
+      "ytd-comment-thread-renderer .clip-shorts-action-wrapper, " +
+      "ytd-comment-renderer .clip-shorts-action-wrapper, " +
+      "ytd-engagement-panel-section-list-renderer .clip-shorts-action-wrapper, " +
+      "[class*='comment'] .clip-shorts-action-wrapper"
+    ).forEach(el => el.remove());
 
     // Strategy 1: Target all #actions columns on Shorts
     const actionContainers = document.querySelectorAll(
@@ -585,6 +594,8 @@
     );
 
     actionContainers.forEach(container => {
+      // NEVER inject into comment panels or engagement sidebars
+      if (container.closest("#comments, ytd-comments, ytd-comment-view-model, ytd-comment-thread-renderer, ytd-comment-renderer, ytd-engagement-panel-section-list-renderer, [class*='comment' i]")) return;
       if (container.querySelector(".clip-shorts-action-wrapper")) return;
 
       const reel = container.closest("ytd-reel-video-renderer, ytd-shorts") || document;
@@ -622,17 +633,16 @@
 
     // Strategy 2: Target all Like buttons inside Shorts action bars (fallback)
     const likeButtons = document.querySelectorAll(
-      "ytd-shorts like-button-view-model, " +
-      "ytd-shorts ytd-like-button-renderer, " +
-      "ytd-shorts #like-button, " +
-      "ytd-reel-video-renderer like-button-view-model, " +
-      "ytd-reel-video-renderer ytd-like-button-renderer, " +
-      "ytd-reel-video-renderer #like-button, " +
-      "ytd-reel-player-overlay-renderer #like-button, " +
-      "ytd-reel-player-overlay-renderer like-button-view-model"
+      "ytd-shorts #actions like-button-view-model, " +
+      "ytd-shorts #actions ytd-like-button-renderer, " +
+      "ytd-shorts #actions #like-button, " +
+      "ytd-reel-player-overlay-renderer #actions like-button-view-model, " +
+      "ytd-reel-player-overlay-renderer #actions #like-button"
     );
 
     likeButtons.forEach(likeBtn => {
+      // STRICT FILTER: NEVER inject inside comments, replies or engagement panels
+      if (likeBtn.closest("#comments, ytd-comments, ytd-comment-view-model, ytd-comment-thread-renderer, ytd-comment-renderer, ytd-engagement-panel-section-list-renderer, [class*='comment' i]")) return;
       if (!likeBtn.closest("ytd-shorts, ytd-reel-video-renderer, ytd-reel-player-overlay-renderer")) return;
       const parent = likeBtn.parentElement;
       if (!parent || parent.querySelector(".clip-shorts-action-wrapper")) return;
@@ -684,15 +694,21 @@
     // Clean up any stray Shorts buttons that shouldn't be here
     document.querySelectorAll(".clip-shorts-action-wrapper").forEach(el => el.remove());
 
-    // Target the primary action buttons container on YouTube
-    const topLevelButtons = document.querySelector(
-      "ytd-watch-metadata #top-level-buttons-computed, " +
-      "#actions-inner #top-level-buttons-computed, " +
-      "#actions #top-level-buttons-computed, " +
-      "#top-level-buttons-computed"
+    // Also remove any CLIP buttons that ended up inside the comments section (failsafe)
+    document.querySelectorAll("#comments .clip-yt-watch-btn-wrapper, ytd-comments .clip-yt-watch-btn-wrapper, ytd-comment-thread-renderer .clip-yt-watch-btn-wrapper, ytd-comment-renderer .clip-yt-watch-btn-wrapper").forEach(el => el.remove());
+
+    // STRICT: Only target the video-level action bar — NEVER comment section buttons
+    // ytd-watch-metadata is the metadata panel below the video (title + actions), never inside comments
+    const topLevelButtons = (
+      document.querySelector("ytd-watch-metadata #top-level-buttons-computed") ||
+      document.querySelector("ytd-watch-flexy #top-level-buttons-computed") ||
+      document.querySelector("#above-the-fold #top-level-buttons-computed") ||
+      document.querySelector("#meta #top-level-buttons-computed")
     );
 
+    // Extra guard: must be a descendant of the main watch page metadata, never inside ytd-comments
     if (!topLevelButtons) return;
+    if (topLevelButtons.closest("ytd-comments, ytd-comment-thread-renderer, ytd-comment-renderer, #comments")) return;
 
     // Check if button already injected
     if (topLevelButtons.querySelector(".clip-yt-watch-btn-wrapper")) return;
@@ -715,7 +731,7 @@
     watchBtn.setAttribute("aria-label", "Klip Al (CLIP)");
     watchBtn.title = "CLIP — Videodan klip kırpıp panoya kopyala";
     watchBtn.innerHTML = `
-      <span class="clip-yt-watch-icon">${ICONS.bolt}</span>
+      <span class="clip-yt-watch-icon">${ICONS.scissors}</span>
       <span class="clip-yt-watch-label">Klip Al</span>
     `;
 
@@ -729,9 +745,17 @@
 
     btnWrapper.appendChild(watchBtn);
 
-    // Place right next to the Like/Dislike segmented button
-    if (likeSegment && likeSegment.parentNode === topLevelButtons) {
-      likeSegment.insertAdjacentElement("afterend", btnWrapper);
+    // Place directly to the LEFT of the Like/Dislike segmented button
+    if (likeSegment) {
+      let targetChild = likeSegment;
+      while (targetChild && targetChild.parentElement && targetChild.parentElement !== topLevelButtons) {
+        targetChild = targetChild.parentElement;
+      }
+      if (targetChild && targetChild.parentElement === topLevelButtons) {
+        targetChild.insertAdjacentElement("beforebegin", btnWrapper);
+      } else {
+        topLevelButtons.insertAdjacentElement("afterbegin", btnWrapper);
+      }
     } else {
       topLevelButtons.insertAdjacentElement("afterbegin", btnWrapper);
     }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CLIP — Copy videos, not links",
-  "version": "1.4.6",
+  "version": "2.0.2",
   "description": "Evrensel video panosu. YouTube Shorts, TikTok, Instagram ve X videolarını tek tıkla yakalayın ve doğrudan Discord veya WhatsApp'a yapıştırın.",
   "icons": {
     "16": "icons/icon16.png",
