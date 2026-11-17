@@ -30,6 +30,8 @@ import urllib.request
 import time
 import re
 import threading
+import socket
+import winreg
 import ctypes
 from ctypes import wintypes
 
@@ -125,6 +127,48 @@ if not FFMPEG_PATH:
 CF_HDROP = 15
 GHND = 0x0042
 
+TRAY_ICON = None
+
+def notify_user(title, message):
+    if TRAY_ICON and hasattr(TRAY_ICON, "notify"):
+        try:
+            TRAY_ICON.notify(title=title, message=message)
+        except Exception:
+            pass
+
+RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+APP_NAME = "CLIP_Companion"
+
+def is_autostart_enabled():
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_READ) as key:
+            val, _ = winreg.QueryValueEx(key, APP_NAME)
+            return bool(val)
+    except FileNotFoundError:
+        return False
+    except Exception:
+        return False
+
+def set_autostart(enable=True):
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+            if enable:
+                pythonw = sys.executable
+                if pythonw.endswith("python.exe"):
+                    pythonw = pythonw[:-10] + "pythonw.exe"
+                script_path = os.path.abspath(__file__)
+                cmd = f'"{pythonw}" -u -B "{script_path}"'
+                winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, cmd)
+            else:
+                try:
+                    winreg.DeleteValue(key, APP_NAME)
+                except FileNotFoundError:
+                    pass
+        return True
+    except Exception as e:
+        print(f"Autostart error: {e}")
+        return False
+
 class DROPFILES(ctypes.Structure):
     _fields_ = [
         ("pFiles", wintypes.DWORD),
@@ -172,6 +216,7 @@ def copy_file_to_windows_clipboard(file_path):
     user32.SetClipboardData(CF_HDROP, h_global)
     user32.CloseClipboard()
     print(f"📋 [CLIP] Copied to Windows Clipboard (CF_HDROP): {abs_path}")
+    notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan Ctrl+V yapabilirsiniz.")
     try:
         cleanup_temp_files()
     except Exception:
@@ -665,10 +710,89 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
         self.send_response(404)
         self.end_headers()
 
+def is_port_in_use(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('127.0.0.1', port)) == 0
+
+def setup_tray(server):
+    global TRAY_ICON
+    try:
+        import pystray
+        from PIL import Image
+
+        icon_path = os.path.join(current_dir, "icons", "icon48.png")
+        if not os.path.exists(icon_path):
+            icon_path = os.path.join(current_dir, "icons", "icon128.png")
+        img = Image.open(icon_path) if os.path.exists(icon_path) else None
+        if not img:
+            return None
+
+        def on_open_folder(icon, item):
+            try:
+                os.startfile(CLIP_DIR)
+            except Exception:
+                pass
+
+        def on_clean(icon, item):
+            cleanup_temp_files(max_age_seconds=0, max_files=0, max_total_bytes=0)
+            notify_user("CLIP", "Geçici video dosyaları temizlendi.")
+
+        def on_toggle_autostart(icon, item):
+            currently_enabled = is_autostart_enabled()
+            set_autostart(not currently_enabled)
+            try:
+                icon.update_menu()
+            except Exception:
+                pass
+            if not currently_enabled:
+                notify_user("CLIP", "Bilgisayar açıldığında otomatik başlama aktif edildi.")
+            else:
+                notify_user("CLIP", "Otomatik başlama kapatıldı.")
+
+        def on_exit(icon, item):
+            icon.stop()
+            try:
+                server.shutdown()
+            except Exception:
+                pass
+            os._exit(0)
+
+        menu = pystray.Menu(
+            pystray.MenuItem("⚡ CLIP: Aktif (Hazır)", None, enabled=False),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("📁 Klipler Klasörünü Aç (Temp)", on_open_folder),
+            pystray.MenuItem("🚀 Bilgisayarla Birlikte Başlat", on_toggle_autostart, checked=lambda item: is_autostart_enabled()),
+            pystray.MenuItem("🧹 Geçici Hafızayı Temizle", on_clean),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("❌ Çıkış", on_exit)
+        )
+
+        TRAY_ICON = pystray.Icon("CLIP", img, "CLIP — Video Panosu (Aktif)", menu)
+        return TRAY_ICON
+    except Exception as e:
+        print(f"Tray setup notice: {e}")
+        return None
+
 def main():
+    if is_port_in_use(PORT):
+        print(f"⚡ [CLIP] Port {PORT} zaten kullanımda. Servis sistem tepsisinde aktif!")
+        try:
+            user32 = ctypes.windll.user32
+            user32.MessageBoxW(0, "CLIP zaten ekranın sağ altındaki Sistem Tepsisinde (System Tray) çalışıyor!", "CLIP", 0x40)
+        except Exception:
+            pass
+        return
+
     cleanup_temp_files()
     cleaner_thread = threading.Thread(target=periodic_cleanup_loop, daemon=True)
     cleaner_thread.start()
+
+    http.server.HTTPServer.allow_reuse_address = True
+    server = http.server.HTTPServer(("127.0.0.1", PORT), ClipHTTPHandler)
+
+    # Arka planda HTTP sunucusunu çalıştır
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
 
     print("=" * 60)
     print("⚡ CLIP Helper — HD Video & Windows Panosu Servisi")
@@ -677,12 +801,20 @@ def main():
     print(f"🎞️ FFmpeg: {'Aktif (WhatsApp H.264 / AAC + faststart)' if FFMPEG_PATH else 'Pasif'}")
     print("🧹 Otomatik Temizleme: Aktif (Maks 5 klip / 120MB / 10 dk ömür)")
     print("=" * 60)
-    http.server.HTTPServer.allow_reuse_address = True
-    server = http.server.HTTPServer(("127.0.0.1", PORT), ClipHTTPHandler)
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nKapatılıyor...")
+
+    tray = setup_tray(server)
+    if tray:
+        # Sistem tepsisi döngüsünü ana iş parçacığında çalıştır
+        try:
+            tray.run()
+        except KeyboardInterrupt:
+            tray.stop()
+            server.shutdown()
+    else:
+        try:
+            server_thread.join()
+        except KeyboardInterrupt:
+            server.shutdown()
 
 if __name__ == "__main__":
     main()
