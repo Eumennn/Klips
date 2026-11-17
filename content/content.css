@@ -64,6 +64,25 @@
   color: #ffffff !important;
 }
 
+/* Inactive / Colorless mode when paused from System Tray */
+.clip-paused .clip-tiktok-action-circle,
+.clip-paused .clip-action-circle,
+.clip-paused .clip-shorts-action-circle,
+.clip-paused .clip-x-action-circle {
+  filter: grayscale(1) opacity(0.35) !important;
+  color: #94a3b8 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+}
+
+.clip-paused:hover .clip-tiktok-action-circle,
+.clip-paused:hover .clip-action-circle,
+.clip-paused:hover .clip-shorts-action-circle,
+.clip-paused:hover .clip-x-action-circle {
+  transform: none !important;
+  filter: grayscale(1) opacity(0.55) !important;
+}
+
 /* Standalone Single TikTok Video page button & Up-Arrow Column Button */
 .clip-tiktok-arrow-nav-btn {
   display: flex !important;

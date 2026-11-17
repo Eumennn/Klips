@@ -128,6 +128,48 @@ CF_HDROP = 15
 GHND = 0x0042
 
 TRAY_ICON = None
+IS_ACTIVE = True
+IMG_ACTIVE = None
+IMG_INACTIVE = None
+
+def get_tray_images():
+    global IMG_ACTIVE, IMG_INACTIVE
+    if IMG_ACTIVE is not None and IMG_INACTIVE is not None:
+        return IMG_ACTIVE, IMG_INACTIVE
+    try:
+        from PIL import Image, ImageOps
+        icon_path = os.path.join(current_dir, "icons", "icon48.png")
+        if not os.path.exists(icon_path):
+            icon_path = os.path.join(current_dir, "icons", "icon128.png")
+        IMG_ACTIVE = Image.open(icon_path).convert("RGBA")
+        r, g, b, a = IMG_ACTIVE.split()
+        gray = ImageOps.grayscale(IMG_ACTIVE.convert("RGB"))
+        dim_a = a.point(lambda p: int(p * 0.75))
+        IMG_INACTIVE = Image.merge("RGBA", (gray, gray, gray, dim_a))
+    except Exception as e:
+        print(f"Icon generation error: {e}")
+    return IMG_ACTIVE, IMG_INACTIVE
+
+def toggle_active_state(icon=None, item=None):
+    global IS_ACTIVE, TRAY_ICON
+    target = icon or TRAY_ICON
+    IS_ACTIVE = not IS_ACTIVE
+    act_img, inact_img = get_tray_images()
+    if target:
+        if IS_ACTIVE:
+            if act_img:
+                target.icon = act_img
+            target.title = "CLIP — Aktif (Açık)"
+            notify_user("CLIP: Aktif ⚡", "Servis açıldı (Mor mod), videolar kopyalanabilir.")
+        else:
+            if inact_img:
+                target.icon = inact_img
+            target.title = "CLIP — Kapalı (Duraklatıldı)"
+            notify_user("CLIP: Kapalı ⏸️", "Servis duraklatıldı (Renksiz mod). Açmak için tekrar tıklayın.")
+        try:
+            target.update_menu()
+        except Exception:
+            pass
 
 def notify_user(title, message):
     if TRAY_ICON and hasattr(TRAY_ICON, "notify"):
@@ -567,7 +609,8 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({
-                "status": "ok",
+                "status": "ok" if IS_ACTIVE else "paused",
+                "active": IS_ACTIVE,
                 "service": "CLIP Helper",
                 "has_ffmpeg": bool(FFMPEG_PATH),
                 "clip_dir": CLIP_DIR
@@ -628,6 +671,17 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/clip":
+            if not IS_ACTIVE:
+                self.send_response(200)
+                self.send_cors_headers()
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "success": False,
+                    "error": "CLIP şu anda Sistem Tepsisinden kapatıldı (duraklatıldı). Açmak için sağ alttaki simgeye bir kez tıklayın."
+                }).encode())
+                return
+
             query = urllib.parse.parse_qs(parsed.query)
             url = query.get("url", [None])[0]
             dom_src = query.get("dom_src", [None])[0]
@@ -721,14 +775,11 @@ def setup_tray(server):
     global TRAY_ICON
     try:
         import pystray
-        from PIL import Image
-
-        icon_path = os.path.join(current_dir, "icons", "icon48.png")
-        if not os.path.exists(icon_path):
-            icon_path = os.path.join(current_dir, "icons", "icon128.png")
-        img = Image.open(icon_path) if os.path.exists(icon_path) else None
-        if not img:
+        act_img, inact_img = get_tray_images()
+        if not act_img:
             return None
+
+        current_img = act_img if IS_ACTIVE else inact_img
 
         def on_open_folder(icon, item):
             try:
@@ -760,8 +811,11 @@ def setup_tray(server):
                 pass
             os._exit(0)
 
+        def get_status_title(item):
+            return "⚡ Durum: Aktif (Açık — Kapatmak için tıkla)" if IS_ACTIVE else "⏸️ Durum: Kapalı (Açmak için tıkla)"
+
         menu = pystray.Menu(
-            pystray.MenuItem("⚡ CLIP: Aktif (Hazır)", None, enabled=False),
+            pystray.MenuItem(get_status_title, toggle_active_state, default=True),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("📁 Klipler Klasörünü Aç (Temp)", on_open_folder),
             pystray.MenuItem("🚀 Bilgisayarla Birlikte Başlat", on_toggle_autostart, checked=lambda item: is_autostart_enabled()),
@@ -770,7 +824,7 @@ def setup_tray(server):
             pystray.MenuItem("❌ Çıkış", on_exit)
         )
 
-        TRAY_ICON = pystray.Icon("CLIP", img, "CLIP — Video Panosu (Aktif)", menu)
+        TRAY_ICON = pystray.Icon("CLIP", current_img, "CLIP — Aktif (Açık)" if IS_ACTIVE else "CLIP — Kapalı", menu)
         return TRAY_ICON
     except Exception as e:
         print(f"Tray setup notice: {e}")

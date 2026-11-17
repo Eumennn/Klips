@@ -626,6 +626,10 @@
    * Trigger Video Capture & Windows Clipboard Copy
    */
   async function triggerCapture(targetWrapper, videoEl, platform, exactUrl, startTime, endTime) {
+    if (!isCompanionActive) {
+      showDynamicIslandMessage("⏸️ CLIP sistem tepsisinden kapalı. Açmak için sağ alttaki simgeye bir kez tıklayın.");
+      return;
+    }
     console.log("⚡ [CLIP] Capturing video...", platform, exactUrl, startTime, endTime);
 
     const hasTimeRange = startTime !== undefined && startTime !== null && endTime !== undefined && endTime !== null;
@@ -1021,6 +1025,29 @@
   window.__CLIP_INTERVAL__ = setInterval(() => {
     if (!isUserScrolling) scanAll();
   }, 1500);
+
+  // Sync state with System Tray Companion (active vs paused/colorless)
+  let isCompanionActive = true;
+  async function syncCompanionState() {
+    try {
+      const res = await fetch("http://127.0.0.1:48123/health", { signal: AbortSignal.timeout(450) });
+      if (res.ok) {
+        const data = await res.json();
+        const active = data.active !== false;
+        if (isCompanionActive !== active) {
+          isCompanionActive = active;
+          document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-reels-action-wrapper, .clip-x-action-wrapper").forEach(el => {
+            el.classList.toggle("clip-paused", !isCompanionActive);
+            el.title = isCompanionActive 
+              ? "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)" 
+              : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
+          });
+        }
+      }
+    } catch (e) {}
+  }
+  setInterval(syncCompanionState, 1500);
+  syncCompanionState();
 
   // Debounced MutationObserver: NEVER fires synchronously during scroll!
   window.__CLIP_OBSERVER__ = new MutationObserver(() => {
