@@ -805,8 +805,9 @@ def main():
     tray = setup_tray(server)
     if tray:
         def on_tray_ready(icon):
+            icon.visible = True
             try:
-                icon.notify("CLIP Hazır! ⚡", "Sistem tepsisinde aktif. TikTok, Instagram ve X videoları tek tıkla kopyalanabilir.")
+                icon.notify("CLIP Hazır! ⚡", "Sistem tepsisinde aktif. TikTok, Instagram ve X videoları tek tıkla panoya kopyalanabilir.")
             except Exception:
                 pass
 
