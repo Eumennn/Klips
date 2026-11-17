@@ -51,6 +51,38 @@ else:
     ctypes = None
     wintypes = None
 
+# Auto-install any missing dependencies on first launch
+def ensure_core_packages():
+    missing = []
+    try:
+        import PIL
+    except ImportError:
+        missing.append("Pillow")
+    try:
+        import pystray
+    except ImportError:
+        missing.append("pystray")
+    try:
+        import yt_dlp
+    except ImportError:
+        missing.append("yt-dlp")
+    try:
+        import imageio_ffmpeg
+    except ImportError:
+        missing.append("imageio-ffmpeg")
+
+    if missing:
+        try:
+            req_file = os.path.join(current_dir, "requirements.txt")
+            if os.path.exists(req_file):
+                subprocess.run([sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet", "--no-warn-script-location"], check=False)
+            else:
+                subprocess.run([sys.executable, "-m", "pip", "install", *missing, "--quiet", "--no-warn-script-location"], check=False)
+        except Exception as e:
+            pass
+
+ensure_core_packages()
+
 # Force UTF-8 encoding for Windows console
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -167,13 +199,24 @@ def get_tray_images():
         icon_path = os.path.join(current_dir, "icons", "icon48.png")
         if not os.path.exists(icon_path):
             icon_path = os.path.join(current_dir, "icons", "icon128.png")
-        IMG_ACTIVE = Image.open(icon_path).convert("RGBA")
-        r, g, b, a = IMG_ACTIVE.split()
-        gray = ImageOps.grayscale(IMG_ACTIVE.convert("RGB"))
-        dim_a = a.point(lambda p: int(p * 0.75))
-        IMG_INACTIVE = Image.merge("RGBA", (gray, gray, gray, dim_a))
+        if os.path.exists(icon_path):
+            IMG_ACTIVE = Image.open(icon_path).convert("RGBA")
+            r, g, b, a = IMG_ACTIVE.split()
+            gray = ImageOps.grayscale(IMG_ACTIVE.convert("RGB"))
+            dim_a = a.point(lambda p: int(p * 0.75))
+            IMG_INACTIVE = Image.merge("RGBA", (gray, gray, gray, dim_a))
     except Exception as e:
         print(f"Icon generation error: {e}")
+
+    # Fallback to programmatic icon if file load fails
+    if IMG_ACTIVE is None:
+        try:
+            from PIL import Image
+            IMG_ACTIVE = Image.new("RGBA", (32, 32), (168, 85, 247, 255))
+            IMG_INACTIVE = Image.new("RGBA", (32, 32), (100, 100, 100, 200))
+        except Exception:
+            pass
+
     return IMG_ACTIVE, IMG_INACTIVE
 
 def toggle_active_state(icon=None, item=None):
@@ -1024,35 +1067,34 @@ def main():
     print("🧹 Otomatik Temizleme: Aktif (Maks 5 klip / 120MB / 10 dk ömür)")
     print("=" * 60)
 
-    tray = setup_tray(server)
-    if tray:
-        def on_tray_ready(icon):
-            icon.visible = True
+    def on_tray_ready(icon):
+        icon.visible = True
+        try:
+            icon.notify("CLIP Hazır! ⚡", "Sistem tepsisinde aktif. Videolar tek tıkla panoya kopyalanabilir.")
+        except Exception:
+            pass
+
+    # Self-healing tray loop: if tray ever drops or restarts, re-dock automatically
+    while True:
+        tray = setup_tray(server)
+        if tray:
             try:
-                icon.notify("CLIP Hazır! ⚡", "Sistem tepsisinde aktif. YouTube Shorts, TikTok, Instagram ve X videoları tek tıkla panoya kopyalanabilir.")
-            except Exception:
-                pass
-
-        # Sistem tepsisi döngüsünü ana iş parçacığında çalıştır
-        try:
-            tray.run(setup=on_tray_ready)
-        except KeyboardInterrupt:
-            tray.stop()
-            server.shutdown()
-            return
-        except Exception as e:
-            print(f"Tray run notice: {e}")
-
-        # Sistem tepsisi sonlansa veya kapatılsa bile HTTP sunucusunu ayakta tut
-        try:
-            server_thread.join()
-        except KeyboardInterrupt:
-            server.shutdown()
-    else:
-        try:
-            server_thread.join()
-        except KeyboardInterrupt:
-            server.shutdown()
+                tray.run(setup=on_tray_ready)
+            except KeyboardInterrupt:
+                try:
+                    tray.stop()
+                except Exception:
+                    pass
+                try:
+                    server.shutdown()
+                except Exception:
+                    pass
+                return
+            except Exception as e:
+                print(f"Tray run notice: {e}")
+                time.sleep(2)
+        else:
+            time.sleep(4)
 
 if __name__ == "__main__":
     try:

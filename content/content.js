@@ -260,8 +260,7 @@
       }
 
       if (targetUnit.parentElement && targetUnit.parentElement.querySelector(".clip-tiktok-action-wrapper")) {
-        injected = true;
-        break;
+        continue;
       }
 
       const btnWrapper = document.createElement("div");
@@ -285,14 +284,6 @@
 
       // Insert directly ABOVE the Like button in the action column
       targetUnit.insertAdjacentElement("beforebegin", btnWrapper);
-      injected = true;
-      break;
-    }
-
-    // Clean up any extra tiktok buttons
-    const allTk = document.querySelectorAll(".clip-tiktok-action-wrapper");
-    if (allTk.length > 1) {
-      for (let i = 1; i < allTk.length; i++) allTk[i].remove();
     }
   }
 
@@ -575,88 +566,28 @@
   function handleYouTubeShorts() {
     if (!window.location.hostname.includes("youtube.com")) return;
 
-    // CRITICAL: Strictly run ONLY on /shorts/ paths!
     // On regular horizontal watch pages (/watch?v=...), clean up any Shorts buttons and return.
-    if (!window.location.pathname.startsWith("/shorts")) {
+    if (window.location.pathname.startsWith("/watch") || window.location.search.includes("v=")) {
       document.querySelectorAll(".clip-shorts-action-wrapper").forEach(el => el.remove());
       return;
     }
 
-    // Strategy 1: Target all Like buttons inside Shorts action bars
-    const likeButtons = document.querySelectorAll(
-      "ytd-reel-player-overlay-renderer #like-button, " +
-      "ytd-reel-video-renderer #like-button, " +
-      "ytd-reel-video-renderer like-button-view-model, " +
-      "ytd-reel-video-renderer yt-like-button-view-model, " +
-      "ytd-reel-video-renderer ytd-like-button-renderer, " +
-      "ytd-shorts #actions #like-button, " +
-      "ytd-shorts #actions ytd-like-button-renderer, " +
-      "ytd-shorts #actions like-button-view-model, " +
-      "ytd-shorts #actions yt-like-button-view-model"
-    );
+    const isShortsPage = window.location.href.includes("/shorts") || !!document.querySelector("ytd-shorts, ytd-reel-video-renderer");
+    if (!isShortsPage) return;
 
-    likeButtons.forEach(likeBtn => {
-      let targetUnit = likeBtn;
-      const actionsContainer = likeBtn.closest("#actions, [id='actions'], ytd-reel-player-overlay-renderer");
-      if (actionsContainer && likeBtn.parentElement === actionsContainer) {
-        targetUnit = likeBtn;
-      } else if (actionsContainer) {
-        let cur = likeBtn;
-        while (cur && cur.parentElement && cur.parentElement !== actionsContainer) {
-          cur = cur.parentElement;
-        }
-        if (cur && cur.parentElement === actionsContainer) {
-          targetUnit = cur;
-        }
-      }
-
-      if (targetUnit.previousElementSibling && targetUnit.previousElementSibling.classList.contains("clip-shorts-action-wrapper")) {
-        return;
-      }
-      if (actionsContainer && actionsContainer.querySelector(".clip-shorts-action-wrapper")) {
-        return;
-      }
-
-      const reel = targetUnit.closest("ytd-reel-video-renderer, ytm-reel-item-renderer, ytd-shorts, [class*='reel-video-renderer']") || document;
-      const videoEl = reel.querySelector ? reel.querySelector("video") : document.querySelector("video");
-
-      const btnWrapper = document.createElement("div");
-      btnWrapper.className = "clip-shorts-action-wrapper";
-      if (!isCompanionActive) btnWrapper.classList.add("clip-paused");
-      btnWrapper.title = isCompanionActive
-        ? "CLIP — Shorts'u Panoya Kopyala (WhatsApp / Discord)"
-        : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
-      btnWrapper.innerHTML = `
-        <div class="clip-shorts-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>
-      `;
-
-      btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
-      btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
-      btnWrapper.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const curVideo = (reel.querySelector ? reel.querySelector("video") : null) || videoEl || document.querySelector("video");
-        const exactUrl = findYouTubeShortsUrl(reel, curVideo);
-        console.log("⚡ [CLIP] YouTube Shorts captured URL:", exactUrl);
-
-        triggerCapture(btnWrapper, curVideo, "shorts", exactUrl);
-      });
-
-      targetUnit.insertAdjacentElement("beforebegin", btnWrapper);
-    });
-
-    // Strategy 2: Target all #actions columns on Shorts
+    // Strategy 1: Target all #actions columns on Shorts
     const actionContainers = document.querySelectorAll(
-      "ytd-reel-player-overlay-renderer #actions, " +
+      "ytd-shorts #actions, " +
       "ytd-reel-video-renderer #actions, " +
-      "ytd-shorts #actions"
+      "ytd-reel-player-overlay-renderer #actions, " +
+      "#actions.ytd-reel-player-overlay-renderer, " +
+      "#reel-actions"
     );
 
     actionContainers.forEach(container => {
       if (container.querySelector(".clip-shorts-action-wrapper")) return;
 
-      const reel = container.closest("ytd-reel-video-renderer, ytm-reel-item-renderer, ytd-shorts") || document;
+      const reel = container.closest("ytd-reel-video-renderer, ytd-shorts") || document;
       const videoEl = reel.querySelector ? reel.querySelector("video") : document.querySelector("video");
 
       const btnWrapper = document.createElement("div");
@@ -682,7 +613,57 @@
         triggerCapture(btnWrapper, curVideo, "shorts", exactUrl);
       });
 
-      container.insertAdjacentElement("afterbegin", btnWrapper);
+      if (container.firstElementChild) {
+        container.firstElementChild.insertAdjacentElement("beforebegin", btnWrapper);
+      } else {
+        container.appendChild(btnWrapper);
+      }
+    });
+
+    // Strategy 2: Target all Like buttons inside Shorts action bars (fallback)
+    const likeButtons = document.querySelectorAll(
+      "ytd-shorts like-button-view-model, " +
+      "ytd-shorts ytd-like-button-renderer, " +
+      "ytd-shorts #like-button, " +
+      "ytd-reel-video-renderer like-button-view-model, " +
+      "ytd-reel-video-renderer ytd-like-button-renderer, " +
+      "ytd-reel-video-renderer #like-button, " +
+      "ytd-reel-player-overlay-renderer #like-button, " +
+      "ytd-reel-player-overlay-renderer like-button-view-model"
+    );
+
+    likeButtons.forEach(likeBtn => {
+      if (!likeBtn.closest("ytd-shorts, ytd-reel-video-renderer, ytd-reel-player-overlay-renderer")) return;
+      const parent = likeBtn.parentElement;
+      if (!parent || parent.querySelector(".clip-shorts-action-wrapper")) return;
+
+      const reel = likeBtn.closest("ytd-reel-video-renderer, ytd-shorts") || document;
+      const videoEl = reel.querySelector ? reel.querySelector("video") : document.querySelector("video");
+
+      const btnWrapper = document.createElement("div");
+      btnWrapper.className = "clip-shorts-action-wrapper";
+      if (!isCompanionActive) btnWrapper.classList.add("clip-paused");
+      btnWrapper.title = isCompanionActive
+        ? "CLIP — Shorts'u Panoya Kopyala (WhatsApp / Discord)"
+        : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
+      btnWrapper.innerHTML = `
+        <div class="clip-shorts-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>
+      `;
+
+      btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
+      btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
+      btnWrapper.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const curVideo = (reel.querySelector ? reel.querySelector("video") : null) || videoEl || document.querySelector("video");
+        const exactUrl = findYouTubeShortsUrl(reel, curVideo);
+        console.log("⚡ [CLIP] YouTube Shorts captured URL:", exactUrl);
+
+        triggerCapture(btnWrapper, curVideo, "shorts", exactUrl);
+      });
+
+      likeBtn.insertAdjacentElement("beforebegin", btnWrapper);
     });
   }
 
@@ -1022,16 +1003,13 @@
           if (boltIcon) boltIcon.innerHTML = ICONS.check;
           if (watchIcon) watchIcon.innerHTML = ICONS.check;
 
-          // Helper servisi çalışıyorsa clipboard'a kopyalandı, yoksa otomatik indir
+          // Helper servisi çalışıyorsa doğrudan sistem panosuna (Ctrl+V / Cmd+V) kopyalandı
           const clipboardReady = !!response.clipboardCopied;
 
-          // Helper servisi yoksa: arka planda otomatik indir (İndirilenler klasörüne düşer)
-          if (!clipboardReady && response.videoUrl) {
-            chrome.runtime.sendMessage({
-              action: "TRIGGER_DOWNLOAD",
-              videoUrl: response.videoUrl,
-              platform: platform
-            });
+          if (!clipboardReady) {
+            showDynamicIslandMessage("⚠️ CLIP masaüstü servisi açık değil. Panoya kopyalamak için CLIP'i başlatın.");
+            resetButtonState(targetWrapper);
+            return;
           }
 
           // Drag & drop için blob'u yükle (sadece küçük/erişilebilir URL'ler için)

@@ -15,7 +15,7 @@ from tkinter import ttk, messagebox
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ICON_PATH = os.path.join(CURRENT_DIR, "icons", "icon48.png")
 ICO_PATH = os.path.join(CURRENT_DIR, "icons", "icon.ico")
-BAT_PATH = os.path.join(CURRENT_DIR, "start_clip.bat")
+BAT_PATH = os.path.join(CURRENT_DIR, "CLIP.bat")
 
 def check_dependencies():
     status = {}
