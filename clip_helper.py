@@ -37,6 +37,10 @@ IS_WINDOWS = sys.platform.startswith("win")
 IS_MAC = sys.platform == "darwin"
 IS_LINUX = sys.platform.startswith("linux")
 
+# Suppress console window flashes for all subprocess calls on Windows
+CREATE_NO_WINDOW = 0x08000000 if IS_WINDOWS else 0
+_SUBPROCESS_FLAGS = {"creationflags": CREATE_NO_WINDOW} if IS_WINDOWS else {}
+
 if IS_WINDOWS:
     try:
         import winreg
@@ -75,9 +79,9 @@ def ensure_core_packages():
         try:
             req_file = os.path.join(current_dir, "requirements.txt")
             if os.path.exists(req_file):
-                subprocess.run([sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet", "--no-warn-script-location"], check=False)
+                subprocess.run([sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet", "--no-warn-script-location"], check=False, **_SUBPROCESS_FLAGS)
             else:
-                subprocess.run([sys.executable, "-m", "pip", "install", *missing, "--quiet", "--no-warn-script-location"], check=False)
+                subprocess.run([sys.executable, "-m", "pip", "install", *missing, "--quiet", "--no-warn-script-location"], check=False, **_SUBPROCESS_FLAGS)
         except Exception as e:
             pass
 
@@ -504,19 +508,22 @@ def is_valid_progressive_video_url(url):
         return False
     return True
 
-def ensure_whatsapp_compatible(file_path):
+def ensure_whatsapp_compatible(file_path, skip_if_compliant=False):
     """
     Ensures video is 100% compatible with WhatsApp Web / Desktop on Windows:
     - Codec: H.264 (avc1)
     - Audio: AAC (mp4a) — If video has no audio (e.g. muted Instagram Reel), adds a silent stereo track
     - Pixel format: yuv420p with even dimensions (width/height divisible by 2)
     - moov atom at start: +faststart (0.1s instant load in WhatsApp Ctrl+V)
+
+    skip_if_compliant=True: returns file_path as-is when already fully H.264+AAC+yuv420p MP4
+    (use when yt-dlp postprocessor already applied +faststart, skips the extra FFmpeg pass entirely)
     """
     if not FFMPEG_PATH or not os.path.exists(file_path):
         return file_path
 
     try:
-        probe = subprocess.run([FFMPEG_PATH, "-i", file_path], capture_output=True, text=True, errors="ignore")
+        probe = subprocess.run([FFMPEG_PATH, "-i", file_path], capture_output=True, text=True, errors="ignore", **_SUBPROCESS_FLAGS)
         stderr = probe.stderr or ""
 
         has_video = "Video:" in stderr
@@ -532,12 +539,18 @@ def ensure_whatsapp_compatible(file_path):
         is_h264 = ("Video: h264" in stderr or "avc1" in stderr)
         is_aac = ("Audio: aac" in stderr or "mp4a" in stderr)
         is_yuv420p = "yuv420p" in stderr and "yuv420p10" not in stderr
+        is_mp4_container = file_path.lower().endswith(".mp4")
 
         base_dir, base_name = os.path.split(file_path)
         out_path = os.path.join(base_dir, f"wa_{base_name}")
 
-        # If already fully compliant H.264 + AAC + yuv420p, just faststart
-        if is_h264 and is_aac and is_yuv420p:
+        # If already fully compliant H.264 + AAC + yuv420p in MP4 container:
+        if is_h264 and is_aac and is_yuv420p and is_mp4_container:
+            if skip_if_compliant:
+                # Caller guarantees faststart already applied (e.g. yt-dlp postprocessor)
+                # Skip FFmpeg entirely — instant return
+                return file_path
+            # Stream-copy + faststart only (fast remux, no re-encode)
             cmd = [
                 FFMPEG_PATH, "-y", "-i", file_path,
                 "-c", "copy",
@@ -568,7 +581,7 @@ def ensure_whatsapp_compatible(file_path):
                 out_path
             ]
 
-        subprocess.run(cmd, capture_output=True, check=True)
+        subprocess.run(cmd, capture_output=True, check=True, **_SUBPROCESS_FLAGS)
         if os.path.exists(out_path) and os.path.getsize(out_path) > 1000:
             try:
                 os.remove(file_path)
@@ -757,10 +770,12 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
     cmd.append(clean_url)
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True, **_SUBPROCESS_FLAGS)
         out_path = result.stdout.strip().splitlines()[-1] if result.stdout and result.stdout.strip() else None
         if out_path and os.path.exists(out_path):
-            final_file = ensure_whatsapp_compatible(out_path)
+            # yt-dlp already applied --postprocessor-args "ffmpeg:-movflags +faststart"
+            # so if output is a compliant H.264+AAC MP4, skip the extra FFmpeg pass for speed
+            final_file = ensure_whatsapp_compatible(out_path, skip_if_compliant=True)
             if final_file and os.path.exists(final_file):
                 copy_file_to_clipboard(final_file)
                 return {"path": final_file}
@@ -1050,14 +1065,22 @@ def free_port_if_needed(port):
     cur_pid = os.getpid()
     if IS_WINDOWS:
         try:
-            out = subprocess.check_output(f'netstat -ano | findstr :{port}', shell=True, text=True)
+            # Use netstat directly without shell=True to avoid cmd.exe flash
+            out = subprocess.check_output(
+                ["netstat", "-ano"],
+                text=True, stderr=subprocess.DEVNULL,
+                **_SUBPROCESS_FLAGS
+            )
             for line in out.strip().splitlines():
                 parts = line.strip().split()
-                if len(parts) >= 5 and "LISTENING" in parts:
+                if len(parts) >= 5 and "LISTENING" in parts and f":{port}" in parts[1]:
                     pid = int(parts[-1])
                     if pid != cur_pid:
                         try:
-                            subprocess.run(f'taskkill /F /PID {pid}', shell=True, capture_output=True)
+                            subprocess.run(
+                                ["taskkill", "/F", "/PID", str(pid)],
+                                capture_output=True, **_SUBPROCESS_FLAGS
+                            )
                             time.sleep(0.4)
                         except Exception:
                             pass
