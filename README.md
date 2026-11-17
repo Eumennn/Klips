@@ -1,42 +1,18 @@
-# ⚡ CLIP — Evrensel Video Panosu
+# CLIP
 
-Link kopyalamakla uğraşmayın. Videoları tek tıkla **doğrudan panoya kopyalayın** ve WhatsApp, Discord, Telegram'a **`Ctrl + V`** yaparak anında gönderin!
+## Kurulum
 
-%100 Açık Kaynak & Ücretsiz.
+1. Klasördeki `KURULUM.bat` dosyasını çalıştırın.
+2. Tarayıcınızda (Chrome / Brave / Edge) eklentiler sayfasına gidin (`chrome://extensions` veya `brave://extensions`).
+3. Sağ üstten "Geliştirici Modu"nu açın, "Paketlenmemiş Öğe Yükle" butonuna tıklayın ve bu klasörü seçin.
+4. `start_clip.bat` dosyasını çalıştırın.
 
----
+## Nasıl Kullanılır?
 
-## 🛠️ Nasıl Kurulur? (3 Adım)
+Link kopyalamak yerine videoyu doğrudan panonuza kopyalar:
 
-1. **`KURULUM.bat` dosyasına çift tıklayın.**  
-   Gerekli bileşenleri ve masaüstü kısayolunu otomatik hazırlar.
+- YouTube Shorts, TikTok, Instagram Reels veya X'te videonun yanındaki butona tıklayın.
+- YouTube yatay videolarda Beğen butonunun yanındaki "Klip Al" butonuna tıklayıp süreyi seçin.
+- WhatsApp veya Discord'a geçip Ctrl+V yapın; video anında yapışır.
 
-2. **Tarayıcınıza Ekleyin:**  
-   - Tarayıcınızda (Chrome / Brave / Edge) eklentiler sayfasına gidin: `chrome://extensions` veya `brave://extensions`  
-   - Sağ üstteki **Geliştirici Modu**'nu açın.  
-   - Sol üstteki **Paketlenmemiş Öğe Yükle** butonuna basıp bu klasörü seçin.
-
-3. **Başlatın:**  
-   - **`start_clip.bat`** dosyasını çalıştırın (veya kurulum sihirbazından başlatın).  
-   - Ekranın sağ altındaki Windows Sistem Tepsisine (`^` menüsü) mor şimşek simgesi gelecektir.
-
----
-
-## 🚀 Nasıl Kullanılır?
-
-* **YouTube Shorts, TikTok, Instagram Reels, X:**  
-  Videonun yanındaki mor **⚡** butonuna tıklayın. Video arka planda hazırlanır ve panonuza kopyalanır.
-
-* **YouTube Normal (Yatay) Videolar:**  
-  Beğen (Like) butonunun hemen yanındaki **⚡ Klip Al** butonuna basın. Açılan küçük pencereden süreyi (Örn: *Son 30s*) seçip kopyalayın.
-
-* **WhatsApp, Discord veya Telegram'a geçin:**  
-  Doğrudan **`Ctrl + V`** yapın ve gönderin!
-
----
-
-## ⚙️ Aç / Kapat ve Ayarlar
-
-* Sağ alttaki Windows görev çubuğu menüsünde (`^`) yer alan **⚡** simgesine tıklayarak servisi istediğiniz zaman **Açıp / Kapatabilirsiniz**.
-* Sağ tıklayarak **Klipler Klasörü**'ne ulaşabilir veya hafızayı temizleyebilirsiniz.
-* Tarayıcıdaki eklenti simgesine tıklayarak link yapıştırabilir veya geçmiş kliplerinize tek tıkla erişebilirsiniz.
+Ekranın sağ altındaki Windows sistem tepsisi simgesinden uygulamayı istediğiniz zaman açıp kapatabilirsiniz.
