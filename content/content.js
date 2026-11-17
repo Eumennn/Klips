@@ -573,77 +573,35 @@
       return;
     }
 
-    // Always clean up any rogue buttons inside comments, replies or engagement panels
+    // Clean up any rogue buttons that were mistakenly injected into actual comment boxes
     document.querySelectorAll(
       "#comments .clip-shorts-action-wrapper, " +
       "ytd-comments .clip-shorts-action-wrapper, " +
       "ytd-comment-view-model .clip-shorts-action-wrapper, " +
       "ytd-comment-thread-renderer .clip-shorts-action-wrapper, " +
-      "ytd-comment-renderer .clip-shorts-action-wrapper, " +
-      "ytd-engagement-panel-section-list-renderer .clip-shorts-action-wrapper, " +
-      "[class*='comment'] .clip-shorts-action-wrapper"
+      "ytd-comment-renderer .clip-shorts-action-wrapper"
     ).forEach(el => el.remove());
 
-    // Strategy 1: Target all #actions columns on Shorts
-    const actionContainers = document.querySelectorAll(
-      "ytd-shorts #actions, " +
-      "ytd-reel-video-renderer #actions, " +
-      "ytd-reel-player-overlay-renderer #actions, " +
-      "#actions.ytd-reel-player-overlay-renderer, " +
-      "#reel-actions"
+    const isCommentSection = (el) => el.closest(
+      "#comments, ytd-comments, ytd-comment-view-model, ytd-comment-thread-renderer, ytd-comment-renderer, #comment-section-renderer"
     );
 
-    actionContainers.forEach(container => {
-      // NEVER inject into comment panels or engagement sidebars
-      if (container.closest("#comments, ytd-comments, ytd-comment-view-model, ytd-comment-thread-renderer, ytd-comment-renderer, ytd-engagement-panel-section-list-renderer, [class*='comment' i]")) return;
-      if (container.querySelector(".clip-shorts-action-wrapper")) return;
-
-      const reel = container.closest("ytd-reel-video-renderer, ytd-shorts") || document;
-      const videoEl = reel.querySelector ? reel.querySelector("video") : document.querySelector("video");
-
-      const btnWrapper = document.createElement("div");
-      btnWrapper.className = "clip-shorts-action-wrapper";
-      if (!isCompanionActive) btnWrapper.classList.add("clip-paused");
-      btnWrapper.title = isCompanionActive
-        ? "CLIP — Shorts'u Panoya Kopyala (WhatsApp / Discord)"
-        : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
-      btnWrapper.innerHTML = `
-        <div class="clip-shorts-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>
-      `;
-
-      btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
-      btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
-      btnWrapper.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const curVideo = (reel.querySelector ? reel.querySelector("video") : null) || videoEl || document.querySelector("video");
-        const exactUrl = findYouTubeShortsUrl(reel, curVideo);
-        console.log("⚡ [CLIP] YouTube Shorts captured URL:", exactUrl);
-
-        triggerCapture(btnWrapper, curVideo, "shorts", exactUrl);
-      });
-
-      if (container.firstElementChild) {
-        container.firstElementChild.insertAdjacentElement("beforebegin", btnWrapper);
-      } else {
-        container.appendChild(btnWrapper);
-      }
-    });
-
-    // Strategy 2: Target all Like buttons inside Shorts action bars (fallback)
+    // Strategy 1: Target Like button inside Shorts action bar (Primary & most reliable)
     const likeButtons = document.querySelectorAll(
       "ytd-shorts #actions like-button-view-model, " +
       "ytd-shorts #actions ytd-like-button-renderer, " +
       "ytd-shorts #actions #like-button, " +
+      "ytd-reel-video-renderer #actions like-button-view-model, " +
+      "ytd-reel-video-renderer #actions ytd-like-button-renderer, " +
+      "ytd-reel-video-renderer #actions #like-button, " +
       "ytd-reel-player-overlay-renderer #actions like-button-view-model, " +
-      "ytd-reel-player-overlay-renderer #actions #like-button"
+      "ytd-reel-player-overlay-renderer #actions #like-button, " +
+      "ytd-reel-video-renderer like-button-view-model, " +
+      "ytd-shorts like-button-view-model"
     );
 
     likeButtons.forEach(likeBtn => {
-      // STRICT FILTER: NEVER inject inside comments, replies or engagement panels
-      if (likeBtn.closest("#comments, ytd-comments, ytd-comment-view-model, ytd-comment-thread-renderer, ytd-comment-renderer, ytd-engagement-panel-section-list-renderer, [class*='comment' i]")) return;
-      if (!likeBtn.closest("ytd-shorts, ytd-reel-video-renderer, ytd-reel-player-overlay-renderer")) return;
+      if (isCommentSection(likeBtn)) return;
       const parent = likeBtn.parentElement;
       if (!parent || parent.querySelector(".clip-shorts-action-wrapper")) return;
 
@@ -674,6 +632,52 @@
       });
 
       likeBtn.insertAdjacentElement("beforebegin", btnWrapper);
+    });
+
+    // Strategy 2: Target #actions containers on Shorts (Fallback if like button selector changes)
+    const actionContainers = document.querySelectorAll(
+      "ytd-shorts #actions, " +
+      "ytd-reel-video-renderer #actions, " +
+      "ytd-reel-player-overlay-renderer #actions, " +
+      "#actions.ytd-reel-player-overlay-renderer, " +
+      "#reel-actions"
+    );
+
+    actionContainers.forEach(container => {
+      if (isCommentSection(container)) return;
+      if (container.querySelector(".clip-shorts-action-wrapper")) return;
+
+      const reel = container.closest("ytd-reel-video-renderer, ytd-shorts") || document;
+      const videoEl = reel.querySelector ? reel.querySelector("video") : document.querySelector("video");
+
+      const btnWrapper = document.createElement("div");
+      btnWrapper.className = "clip-shorts-action-wrapper";
+      if (!isCompanionActive) btnWrapper.classList.add("clip-paused");
+      btnWrapper.title = isCompanionActive
+        ? "CLIP — Shorts'u Panoya Kopyala (WhatsApp / Discord)"
+        : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
+      btnWrapper.innerHTML = `
+        <div class="clip-shorts-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>
+      `;
+
+      btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
+      btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
+      btnWrapper.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const curVideo = (reel.querySelector ? reel.querySelector("video") : null) || videoEl || document.querySelector("video");
+        const exactUrl = findYouTubeShortsUrl(reel, curVideo);
+        console.log("⚡ [CLIP] YouTube Shorts captured URL:", exactUrl);
+
+        triggerCapture(btnWrapper, curVideo, "shorts", exactUrl);
+      });
+
+      if (container.firstElementChild) {
+        container.insertBefore(btnWrapper, container.firstElementChild);
+      } else {
+        container.appendChild(btnWrapper);
+      }
     });
   }
 

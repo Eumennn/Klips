@@ -44,8 +44,7 @@
 }
 
 .clip-tiktok-action-circle,
-.clip-action-circle,
-.clip-shorts-action-circle {
+.clip-action-circle {
   width: 48px !important;
   height: 48px !important;
   border-radius: 50% !important;
@@ -62,12 +61,35 @@
   cursor: pointer !important;
 }
 
+.clip-shorts-action-circle {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  background: #350842 !important;
+  background-color: #350842 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(53, 8, 66, 0.5) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  border: none !important;
+  cursor: pointer !important;
+}
+
 .clip-tiktok-action-wrapper:hover .clip-tiktok-action-circle,
-.clip-reels-action-wrapper:hover .clip-action-circle,
-.clip-shorts-action-wrapper:hover .clip-shorts-action-circle {
+.clip-reels-action-wrapper:hover .clip-action-circle {
   transform: scale(1.12) !important;
   box-shadow: 0 8px 24px rgba(168, 85, 247, 0.6) !important;
   border-color: rgba(168, 85, 247, 0.8) !important;
+  color: #ffffff !important;
+}
+
+.clip-shorts-action-wrapper:hover .clip-shorts-action-circle {
+  transform: scale(1.1) !important;
+  background: #4d0d60 !important;
+  background-color: #4d0d60 !important;
+  box-shadow: 0 6px 20px rgba(53, 8, 66, 0.7) !important;
   color: #ffffff !important;
 }
 
