@@ -539,6 +539,9 @@ def download_video_ytdlp(url, is_pro=False, dom_src=None, start_time=None, end_t
     return None
 
 class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass  # Suppress console logging for pythonw / system tray silent mode
+
     def handle(self):
         try:
             super().handle()
