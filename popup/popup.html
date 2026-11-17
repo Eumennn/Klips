@@ -48,8 +48,8 @@
             autocomplete="off" 
             spellcheck="false"
           >
-          <button type="button" id="paste-btn" class="paste-badge" title="Panodan Yapıştır (Ctrl+V)">
-            <kbd>Ctrl+V</kbd>
+          <button type="button" id="paste-btn" class="paste-badge" title="Panodan Yapıştır">
+            <kbd id="paste-kbd">Ctrl+V</kbd>
           </button>
           <button type="button" id="clear-input-btn" class="clear-icon" style="display:none;" title="Temizle">✕</button>
         </div>
@@ -77,7 +77,7 @@
           <span class="success-icon">✓</span>
           <div class="success-msg">
             <strong>Panoya Kopyalandı!</strong>
-            <span>Discord veya WhatsApp'a doğrudan Ctrl+V yapın</span>
+            <span>Discord veya WhatsApp'a doğrudan <span class="paste-target-key">Ctrl+V</span> yapın</span>
           </div>
         </div>
 
@@ -86,7 +86,7 @@
         </div>
 
         <div class="drag-surface" id="popup-drag-zone" draggable="true" title="Sürükle & Bırak">
-          <span>↗ Sürükle & Bırak veya Ctrl+V yap</span>
+          <span>↗ Sürükle & Bırak veya <span class="paste-target-key">Ctrl+V</span> yap</span>
         </div>
 
         <div class="tool-actions">

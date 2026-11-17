@@ -3,6 +3,16 @@
  */
 
 document.addEventListener("DOMContentLoaded", async () => {
+  const IS_MAC = navigator.platform.toUpperCase().indexOf("MAC") >= 0 || navigator.userAgent.includes("Mac");
+  const PASTE_KEY = IS_MAC ? "⌘V" : "Ctrl+V";
+
+  const pasteKbd = document.getElementById("paste-kbd");
+  if (pasteKbd) pasteKbd.textContent = PASTE_KEY;
+
+  document.querySelectorAll(".paste-target-key").forEach(el => {
+    el.textContent = PASTE_KEY;
+  });
+
   const urlInput = document.getElementById("video-url-input");
   const pasteBtn = document.getElementById("paste-btn");
   const clearInputBtn = document.getElementById("clear-input-btn");

@@ -10,7 +10,10 @@ __pycache__/
 .temp/
 *.tmp
 
-# OS files
+# Dist & Releases
+dist/
+*.zip
+
 Thumbs.db
 [Dd]esktop.ini
 .DS_Store

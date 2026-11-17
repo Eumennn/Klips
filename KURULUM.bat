@@ -9,19 +9,26 @@ set PYTHONDONTWRITEBYTECODE=1
 if exist "%CURRENT_DIR%__pycache__" rd /s /q "%CURRENT_DIR%__pycache__"
 
 echo ============================================================
-echo   ⚡ CLIP — Evrensel Video Panosu Kurulum Sihirbazı
+echo   CLIP — Evrensel Video Panosu Kurulum Sihirbazı
 echo ============================================================
 echo.
 
 set "PYTHON_EXE="
-if exist "C:\Users\pc\AppData\Local\Programs\Python\Python312\python.exe" (
-    set "PYTHON_EXE=C:\Users\pc\AppData\Local\Programs\Python\Python312\python.exe"
+where python >nul 2>&1
+if %errorlevel% equ 0 set "PYTHON_EXE=python"
+
+if "%PYTHON_EXE%"=="" (
+    where py >nul 2>&1
+    if %errorlevel% equ 0 set "PYTHON_EXE=py -3"
 )
 
 if "%PYTHON_EXE%"=="" (
-    where python >nul 2>&1
-    if %errorlevel% equ 0 (
-        set "PYTHON_EXE=python"
+    if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
+        set "PYTHON_EXE=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+    ) else if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" (
+        set "PYTHON_EXE=%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
+    ) else if exist "%LOCALAPPDATA%\Programs\Python\Python310\python.exe" (
+        set "PYTHON_EXE=%LOCALAPPDATA%\Programs\Python\Python310\python.exe"
     )
 )
 
@@ -35,6 +42,9 @@ if "%PYTHON_EXE%"=="" (
     exit /b 1
 )
 
+echo Gerekli kütüphaneler kontrol ediliyor...
+%PYTHON_EXE% -m pip install -r "%CURRENT_DIR%requirements.txt"
+
 echo Kurulum sihirbazı başlatılıyor...
-start "" "%PYTHON_EXE%" -u -B "%CURRENT_DIR%setup_wizard.py"
+start "" %PYTHON_EXE% -u -B "%CURRENT_DIR%setup_wizard.py"
 exit /b 0

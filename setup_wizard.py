@@ -64,23 +64,67 @@ def check_dependencies():
 
 def create_desktop_shortcut():
     try:
-        ps_cmd = (
-            f'$WshShell = New-Object -ComObject WScript.Shell; '
-            f'$Shortcut = $WshShell.CreateShortcut("$([Environment]::GetFolderPath(\'Desktop\'))\\CLIP.lnk"); '
-            f'$Shortcut.TargetPath = "{BAT_PATH}"; '
-            f'$Shortcut.WorkingDirectory = "{CURRENT_DIR}"; '
-            f'$Shortcut.Description = "CLIP — Evrensel Video Panosu"; '
-        )
-        if os.path.exists(ICO_PATH):
-            ps_cmd += f'$Shortcut.IconLocation = "{ICO_PATH}"; '
-        ps_cmd += '$Shortcut.Save()'
-        subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True)
-        return True
+        if sys.platform == "darwin":
+            desktop = os.path.expanduser("~/Desktop")
+            target = os.path.join(CURRENT_DIR, "start_clip.command")
+            link = os.path.join(desktop, "CLIP")
+            if not os.path.exists(link) and os.path.exists(target):
+                os.symlink(target, link)
+            return True
+        else:
+            ps_cmd = (
+                f'$WshShell = New-Object -ComObject WScript.Shell; '
+                f'$Shortcut = $WshShell.CreateShortcut("$([Environment]::GetFolderPath(\'Desktop\'))\\CLIP.lnk"); '
+                f'$Shortcut.TargetPath = "{BAT_PATH}"; '
+                f'$Shortcut.WorkingDirectory = "{CURRENT_DIR}"; '
+                f'$Shortcut.Description = "CLIP — Evrensel Video Panosu"; '
+            )
+            if os.path.exists(ICO_PATH):
+                ps_cmd += f'$Shortcut.IconLocation = "{ICO_PATH}"; '
+            ps_cmd += '$Shortcut.Save()'
+            subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True)
+            return True
     except Exception as e:
         print(f"Shortcut error: {e}")
         return False
 
 def set_autostart_reg(enable=True):
+    if sys.platform == "darwin":
+        agent_dir = os.path.expanduser("~/Library/LaunchAgents")
+        plist_path = os.path.join(agent_dir, "com.clip.helper.plist")
+        try:
+            if enable:
+                os.makedirs(agent_dir, exist_ok=True)
+                script_path = os.path.join(CURRENT_DIR, "clip_helper.py")
+                plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clip.helper</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{sys.executable}</string>
+        <string>-u</string>
+        <string>-B</string>
+        <string>{script_path}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>"""
+                with open(plist_path, "w", encoding="utf-8") as f:
+                    f.write(plist_content)
+            else:
+                if os.path.exists(plist_path):
+                    os.remove(plist_path)
+            return True
+        except Exception as e:
+            print(f"macOS autostart error: {e}")
+            return False
+
     try:
         import winreg
         RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -104,6 +148,10 @@ def set_autostart_reg(enable=True):
         return False
 
 def is_autostart_active():
+    if sys.platform == "darwin":
+        plist_path = os.path.expanduser("~/Library/LaunchAgents/com.clip.helper.plist")
+        return os.path.exists(plist_path)
+
     try:
         import winreg
         RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -242,9 +290,10 @@ class SetupWizard(tk.Tk):
         chk_shortcut.pack(anchor="w", pady=3)
 
         self.var_autostart = tk.BooleanVar(value=is_autostart_active() or True)
+        autostart_text = "🚀 Mac açıldığında otomatik başlat (Üst Menü Çubuğu)" if sys.platform == "darwin" else "🚀 Windows açıldığında otomatik başlat (Sistem Tepsisi — Yukarı Ok ^)"
         chk_autostart = tk.Checkbutton(
             card_settings,
-            text="🚀 Windows açıldığında otomatik başlat (Sistem Tepsisi — Yukarı Ok ^)",
+            text=autostart_text,
             variable=self.var_autostart,
             font=("Segoe UI", 10),
             fg="#e2e8f0",
@@ -353,9 +402,10 @@ class SetupWizard(tk.Tk):
         )
         self.btn_finish.pack(fill="x")
 
+        tip_text = "Başlatıldığında servis üst menü çubuğuna (sağ üst) yerleşir ve tek tıkla açılıp kapanabilir." if sys.platform == "darwin" else "Başlatıldığında servis sağ alttaki sistem tepsisine (yukarı ok ^) yerleşir ve tek tıkla açılıp kapanabilir."
         status_tip = tk.Label(
             launch_frame,
-            text="Başlatıldığında servis sağ alttaki sistem tepsisine (yukarı ok ^) yerleşir ve tek tıkla açılıp kapanabilir.",
+            text=tip_text,
             font=("Segoe UI", 8.5),
             fg="#64748b",
             bg="#0b0e17"
@@ -436,10 +486,11 @@ class SetupWizard(tk.Tk):
         except Exception as e:
             subprocess.Popen([BAT_PATH], shell=True)
 
+        location_msg = "üst menü çubuğuna (sağ üst)" if sys.platform == "darwin" else "görev çubuğundaki Sistem Tepsisine (Yukarı Ok ^ simgesi)"
         messagebox.showinfo(
             "CLIP Başlatıldı! ⚡",
-            "CLIP başarıyla başlatıldı ve görev çubuğundaki Sistem Tepsisine (Yukarı Ok ^ simgesi) yerleşti!\n\n"
-            "• Açıp kapatmak için sağ alttaki şimşek simgesine tıklayabilirsiniz.\n"
+            f"CLIP başarıyla başlatıldı ve {location_msg} yerleşti!\n\n"
+            "• Açıp kapatmak için şimşek simgesine tıklayabilirsiniz.\n"
             "• YouTube Shorts, TikTok, Instagram Reels ve X videolarını artık tek tıkla panoya kopyalayabilirsiniz."
         )
         self.destroy()

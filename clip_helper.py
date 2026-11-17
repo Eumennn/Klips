@@ -31,9 +31,25 @@ import time
 import re
 import threading
 import socket
-import winreg
-import ctypes
-from ctypes import wintypes
+import platform
+
+IS_WINDOWS = sys.platform.startswith("win")
+IS_MAC = sys.platform == "darwin"
+IS_LINUX = sys.platform.startswith("linux")
+
+if IS_WINDOWS:
+    try:
+        import winreg
+        import ctypes
+        from ctypes import wintypes
+    except ImportError:
+        winreg = None
+        ctypes = None
+        wintypes = None
+else:
+    winreg = None
+    ctypes = None
+    wintypes = None
 
 # Force UTF-8 encoding for Windows console
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
@@ -101,16 +117,26 @@ def periodic_cleanup_loop():
         time.sleep(30)
         cleanup_temp_files()
 
-# Locate FFmpeg for WhatsApp-compatible H.264/AAC faststart merging
+# Locate FFmpeg for WhatsApp/Discord compatible H.264/AAC faststart merging
+FFMPEG_PATH = None
 try:
     import imageio_ffmpeg
     FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
     print(f"🎬 [CLIP] FFmpeg detected: {FFMPEG_PATH}")
-except Exception as e:
+except Exception:
     FFMPEG_PATH = None
 
 if not FFMPEG_PATH:
+    which_ffmpeg = shutil.which("ffmpeg")
+    if which_ffmpeg:
+        FFMPEG_PATH = which_ffmpeg
+        print(f"🎬 [CLIP] FFmpeg detected (PATH): {FFMPEG_PATH}")
+
+if not FFMPEG_PATH:
     fallback_paths = [
+        "/opt/homebrew/bin/ffmpeg",
+        "/usr/local/bin/ffmpeg",
+        "/usr/bin/ffmpeg",
         r"C:\Users\pc\AppData\Local\Programs\Python\Python312\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe",
         r"C:\Users\pc\miniconda3\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe",
     ]
@@ -175,95 +201,213 @@ def notify_user(title, message):
     if TRAY_ICON and hasattr(TRAY_ICON, "notify"):
         try:
             TRAY_ICON.notify(title=title, message=message)
+            return
+        except Exception:
+            pass
+    if IS_MAC:
+        try:
+            ct = title.replace('"', '\\"')
+            cm = message.replace('"', '\\"')
+            subprocess.run(["osascript", "-e", f'display notification "{cm}" with title "{ct}"'], capture_output=True)
         except Exception:
             pass
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 APP_NAME = "CLIP_Companion"
+LAUNCH_AGENT_DIR = os.path.expanduser("~/Library/LaunchAgents")
+LAUNCH_AGENT_PLIST = os.path.join(LAUNCH_AGENT_DIR, "com.clip.helper.plist")
 
 def is_autostart_enabled():
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_READ) as key:
-            val, _ = winreg.QueryValueEx(key, APP_NAME)
-            return bool(val)
-    except FileNotFoundError:
-        return False
-    except Exception:
-        return False
+    if IS_WINDOWS and winreg:
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_READ) as key:
+                val, _ = winreg.QueryValueEx(key, APP_NAME)
+                return bool(val)
+        except Exception:
+            return False
+    elif IS_MAC:
+        return os.path.exists(LAUNCH_AGENT_PLIST)
+    return False
 
 def set_autostart(enable=True):
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+    if IS_WINDOWS and winreg:
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+                if enable:
+                    pythonw = sys.executable
+                    if pythonw.endswith("python.exe"):
+                        pythonw = pythonw[:-10] + "pythonw.exe"
+                    script_path = os.path.abspath(__file__)
+                    cmd = f'"{pythonw}" -u -B "{script_path}"'
+                    winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, cmd)
+                else:
+                    try:
+                        winreg.DeleteValue(key, APP_NAME)
+                    except FileNotFoundError:
+                        pass
+            return True
+        except Exception as e:
+            print(f"Autostart error: {e}")
+            return False
+    elif IS_MAC:
+        try:
             if enable:
-                pythonw = sys.executable
-                if pythonw.endswith("python.exe"):
-                    pythonw = pythonw[:-10] + "pythonw.exe"
+                os.makedirs(LAUNCH_AGENT_DIR, exist_ok=True)
                 script_path = os.path.abspath(__file__)
-                cmd = f'"{pythonw}" -u -B "{script_path}"'
-                winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, cmd)
+                plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clip.helper</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{sys.executable}</string>
+        <string>-u</string>
+        <string>-B</string>
+        <string>{script_path}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>"""
+                with open(LAUNCH_AGENT_PLIST, "w", encoding="utf-8") as f:
+                    f.write(plist_content)
             else:
-                try:
-                    winreg.DeleteValue(key, APP_NAME)
-                except FileNotFoundError:
-                    pass
-        return True
-    except Exception as e:
-        print(f"Autostart error: {e}")
-        return False
+                if os.path.exists(LAUNCH_AGENT_PLIST):
+                    os.remove(LAUNCH_AGENT_PLIST)
+            return True
+        except Exception as e:
+            print(f"Autostart error: {e}")
+            return False
+    return False
 
-class DROPFILES(ctypes.Structure):
-    _fields_ = [
-        ("pFiles", wintypes.DWORD),
-        ("pt", wintypes.POINT),
-        ("fNC", wintypes.BOOL),
-        ("fWide", wintypes.BOOL),
-    ]
+if IS_WINDOWS and ctypes:
+    class DROPFILES(ctypes.Structure):
+        _fields_ = [
+            ("pFiles", wintypes.DWORD),
+            ("pt", wintypes.POINT),
+            ("fNC", wintypes.BOOL),
+            ("fWide", wintypes.BOOL),
+        ]
+else:
+    DROPFILES = None
 
 def copy_file_to_windows_clipboard(file_path):
     """Copies the file to Windows Clipboard using CF_HDROP (native Ctrl+V file paste)"""
+    if not (IS_WINDOWS and ctypes and DROPFILES):
+        return False
+
     abs_path = os.path.abspath(file_path)
     if not os.path.exists(abs_path):
         print(f"⚠️ [CLIP] Cannot copy to clipboard, file does not exist: {abs_path}")
         return False
 
-    file_bytes = (abs_path + "\0\0").encode("utf-16le")
-    dropfiles = DROPFILES()
-    dropfiles.pFiles = ctypes.sizeof(DROPFILES)
-    dropfiles.fWide = True
-
-    total_size = ctypes.sizeof(DROPFILES) + len(file_bytes)
-
-    user32 = ctypes.windll.user32
-    kernel32 = ctypes.windll.kernel32
-
-    kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
-    kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
-    kernel32.GlobalLock.restype = ctypes.c_void_p
-    kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
-    kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
-
-    user32.OpenClipboard.argtypes = [wintypes.HWND]
-    user32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
-
-    h_global = kernel32.GlobalAlloc(GHND, total_size)
-    p_global = kernel32.GlobalLock(h_global)
-
-    ctypes.memmove(p_global, ctypes.byref(dropfiles), ctypes.sizeof(DROPFILES))
-    ctypes.memmove(p_global + ctypes.sizeof(DROPFILES), file_bytes, len(file_bytes))
-
-    kernel32.GlobalUnlock(h_global)
-
-    user32.OpenClipboard(None)
-    user32.EmptyClipboard()
-    user32.SetClipboardData(CF_HDROP, h_global)
-    user32.CloseClipboard()
-    print(f"📋 [CLIP] Copied to Windows Clipboard (CF_HDROP): {abs_path}")
-    notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan Ctrl+V yapabilirsiniz.")
     try:
-        cleanup_temp_files()
-    except Exception:
-        pass
-    return True
+        file_bytes = (abs_path + "\0\0").encode("utf-16le")
+        dropfiles = DROPFILES()
+        dropfiles.pFiles = ctypes.sizeof(DROPFILES)
+        dropfiles.fWide = True
+
+        total_size = ctypes.sizeof(DROPFILES) + len(file_bytes)
+
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+
+        kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
+        kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+        kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+
+        user32.OpenClipboard.argtypes = [wintypes.HWND]
+        user32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
+
+        h_global = kernel32.GlobalAlloc(GHND, total_size)
+        p_global = kernel32.GlobalLock(h_global)
+
+        ctypes.memmove(p_global, ctypes.byref(dropfiles), ctypes.sizeof(DROPFILES))
+        ctypes.memmove(p_global + ctypes.sizeof(DROPFILES), file_bytes, len(file_bytes))
+
+        kernel32.GlobalUnlock(h_global)
+
+        user32.OpenClipboard(None)
+        user32.EmptyClipboard()
+        user32.SetClipboardData(CF_HDROP, h_global)
+        user32.CloseClipboard()
+        print(f"📋 [CLIP] Copied to Windows Clipboard (CF_HDROP): {abs_path}")
+        notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan Ctrl+V yapabilirsiniz.")
+        try:
+            cleanup_temp_files()
+        except Exception:
+            pass
+        return True
+    except Exception as e:
+        print(f"⚠️ [CLIP] Windows clipboard copy failed: {e}")
+        return False
+
+def copy_file_to_macos_clipboard(file_path):
+    """Copies the file to macOS Clipboard (Pasteboard) using AppleScript POSIX file (native Cmd+V paste)"""
+    abs_path = os.path.abspath(file_path)
+    if not os.path.exists(abs_path):
+        print(f"⚠️ [CLIP] Cannot copy to clipboard, file does not exist: {abs_path}")
+        return False
+
+    try:
+        escaped_path = abs_path.replace('\\', '\\\\').replace('"', '\\"')
+        apple_script = f'tell application "Finder" to set the clipboard to (POSIX file "{escaped_path}")'
+        res = subprocess.run(["osascript", "-e", apple_script], capture_output=True, text=True)
+        if res.returncode == 0:
+            print(f"📋 [CLIP] Copied to macOS Clipboard (⌘V ready): {abs_path}")
+            notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan ⌘V yapabilirsiniz.")
+            try:
+                cleanup_temp_files()
+            except Exception:
+                pass
+            return True
+        else:
+            print(f"⚠️ [CLIP] osascript failed: {res.stderr}")
+            return False
+    except Exception as e:
+        print(f"⚠️ [CLIP] macOS clipboard copy error: {e}")
+        return False
+
+def copy_file_to_clipboard(file_path):
+    if IS_WINDOWS:
+        return copy_file_to_windows_clipboard(file_path)
+    elif IS_MAC:
+        return copy_file_to_macos_clipboard(file_path)
+    else:
+        return False
+
+def open_folder_native(path):
+    try:
+        if IS_WINDOWS:
+            os.startfile(path)
+        elif IS_MAC:
+            subprocess.Popen(["open", path])
+        else:
+            subprocess.Popen(["xdg-open", path])
+        return True
+    except Exception as e:
+        print(f"Error opening folder: {e}")
+        return False
+
+def open_file_native(path):
+    abs_path = os.path.abspath(path)
+    try:
+        if IS_WINDOWS:
+            subprocess.Popen(f'explorer.exe /select,"{abs_path}"')
+        elif IS_MAC:
+            subprocess.Popen(["open", "-R", abs_path])
+        else:
+            subprocess.Popen(["xdg-open", os.path.dirname(abs_path)])
+        return True
+    except Exception as e:
+        print(f"Error opening file: {e}")
+        return False
 
 def is_valid_progressive_video_url(url):
     """Checks whether a URL is a valid complete progressive video (not segmented, not audio)"""
@@ -388,7 +532,7 @@ def download_direct_stream(video_url, filename_prefix="clip"):
         if os.path.exists(target_file) and os.path.getsize(target_file) > 15000:
             final_file = ensure_whatsapp_compatible(target_file)
             if final_file and os.path.exists(final_file) and os.path.getsize(final_file) > 15000:
-                copy_file_to_windows_clipboard(final_file)
+                copy_file_to_clipboard(final_file)
                 print(f"⚡ [CLIP] Direct stream downloaded & copied: {final_file} ({os.path.getsize(final_file)} bytes)")
                 return {"path": final_file}
             else:
@@ -536,7 +680,7 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
         if out_path and os.path.exists(out_path):
             final_file = ensure_whatsapp_compatible(out_path)
             if final_file and os.path.exists(final_file):
-                copy_file_to_windows_clipboard(final_file)
+                copy_file_to_clipboard(final_file)
                 return {"path": final_file}
     except subprocess.CalledProcessError as e:
         print(f"⚠️ [CLIP] Error during yt-dlp execution:\n{e.stderr}")
@@ -561,7 +705,7 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
     if new_files:
         latest = max(new_files, key=os.path.getmtime)
         final_file = ensure_whatsapp_compatible(latest)
-        copy_file_to_windows_clipboard(final_file)
+        copy_file_to_clipboard(final_file)
         return {"path": final_file}
 
     return None
@@ -604,18 +748,12 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/open_folder":
-            try:
-                os.startfile(CLIP_DIR)
-                self.send_response(200)
-                self.send_cors_headers()
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(b'{"success": true}')
-            except Exception as e:
-                self.send_response(500)
-                self.send_cors_headers()
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+            ok = open_folder_native(CLIP_DIR)
+            self.send_response(200 if ok else 500)
+            self.send_cors_headers()
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": ok}).encode())
             return
 
         if parsed.path == "/open_wizard":
@@ -637,18 +775,12 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
             query = urllib.parse.parse_qs(parsed.query)
             path = query.get("path", [None])[0]
             if path and os.path.exists(path):
-                try:
-                    subprocess.Popen(f'explorer.exe /select,"{os.path.abspath(path)}"')
-                    self.send_response(200)
-                    self.send_cors_headers()
-                    self.send_header("Content-Type", "application/json")
-                    self.end_headers()
-                    self.wfile.write(b'{"success": true}')
-                except Exception as e:
-                    self.send_response(500)
-                    self.send_cors_headers()
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+                ok = open_file_native(path)
+                self.send_response(200 if ok else 500)
+                self.send_cors_headers()
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": ok}).encode())
             else:
                 self.send_response(404)
                 self.send_cors_headers()
@@ -659,7 +791,7 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
             query = urllib.parse.parse_qs(parsed.query)
             path = query.get("path", [None])[0]
             if path and os.path.exists(path):
-                ok = copy_file_to_windows_clipboard(path)
+                ok = copy_file_to_clipboard(path)
                 self.send_response(200)
                 self.send_cors_headers()
                 self.send_header("Content-Type", "application/json")
@@ -776,10 +908,7 @@ def setup_tray(server):
         current_img = act_img if IS_ACTIVE else inact_img
 
         def on_open_folder(icon, item):
-            try:
-                os.startfile(CLIP_DIR)
-            except Exception:
-                pass
+            open_folder_native(CLIP_DIR)
 
         def on_clean(icon, item):
             cleanup_temp_files(max_age_seconds=0, max_files=0, max_total_bytes=0)
@@ -836,21 +965,36 @@ def setup_tray(server):
 def free_port_if_needed(port):
     if not is_port_in_use(port):
         return
-    try:
-        out = subprocess.check_output(f'netstat -ano | findstr :{port}', shell=True, text=True)
-        cur_pid = os.getpid()
-        for line in out.strip().splitlines():
-            parts = line.strip().split()
-            if len(parts) >= 5 and "LISTENING" in parts:
-                pid = int(parts[-1])
-                if pid != cur_pid:
-                    try:
-                        subprocess.run(f'taskkill /F /PID {pid}', shell=True, capture_output=True)
-                        time.sleep(0.4)
-                    except Exception:
-                        pass
-    except Exception:
-        pass
+    cur_pid = os.getpid()
+    if IS_WINDOWS:
+        try:
+            out = subprocess.check_output(f'netstat -ano | findstr :{port}', shell=True, text=True)
+            for line in out.strip().splitlines():
+                parts = line.strip().split()
+                if len(parts) >= 5 and "LISTENING" in parts:
+                    pid = int(parts[-1])
+                    if pid != cur_pid:
+                        try:
+                            subprocess.run(f'taskkill /F /PID {pid}', shell=True, capture_output=True)
+                            time.sleep(0.4)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+    else:
+        try:
+            out = subprocess.check_output(f"lsof -ti :{port}", shell=True, text=True)
+            for line in out.strip().splitlines():
+                if line.strip():
+                    pid = int(line.strip())
+                    if pid != cur_pid:
+                        try:
+                            subprocess.run(f"kill -9 {pid}", shell=True, capture_output=True)
+                            time.sleep(0.4)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
 
 def main():
     free_port_if_needed(PORT)
@@ -872,10 +1016,11 @@ def main():
     server_thread.start()
 
     print("=" * 60)
-    print("⚡ CLIP Helper — HD Video & Windows Panosu Servisi")
+    print("⚡ CLIP Helper — HD Video & Panoya Kopyalama Servisi")
+    print(f"💻 Sistem: {platform.system()} ({platform.release()})")
     print(f"🚀 Port: http://127.0.0.1:{PORT}")
     print(f"📂 Dizin: {CLIP_DIR}")
-    print(f"🎞️ FFmpeg: {'Aktif (WhatsApp H.264 / AAC + faststart)' if FFMPEG_PATH else 'Pasif'}")
+    print(f"🎞️ FFmpeg: {'Aktif (H.264 / AAC + faststart)' if FFMPEG_PATH else 'Pasif'}")
     print("🧹 Otomatik Temizleme: Aktif (Maks 5 klip / 120MB / 10 dk ömür)")
     print("=" * 60)
 

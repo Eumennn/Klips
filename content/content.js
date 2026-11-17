@@ -26,6 +26,9 @@
   };
 
   // Universal Video Clipboard (100% Free & Unlimited Open Source)
+  const IS_MAC = navigator.platform.toUpperCase().indexOf("MAC") >= 0 || navigator.userAgent.includes("Mac");
+  const PASTE_KEY = IS_MAC ? "⌘V" : "Ctrl+V";
+  const FILE_EXPLORER_NAME = IS_MAC ? "Finder" : "Dosya Gezgini";
 
 
 
@@ -1089,7 +1092,7 @@
     const statusSpan = document.createElement("span");
     statusSpan.className = "clip-island-status";
     if (clipboardReady) {
-      statusSpan.innerHTML = `${ICONS.check} <span>Panoda Hazır (Ctrl+V)</span>`;
+      statusSpan.innerHTML = `${ICONS.check} <span>Panoda Hazır (${PASTE_KEY})</span>`;
     } else {
       // Auto-download already triggered above; guide user to WhatsApp attach
       statusSpan.innerHTML = `${ICONS.check} <span>İndirildi — WhatsApp'ta 📎 ile yükle</span>`;
@@ -1102,7 +1105,7 @@
     // 3. Open Folder in Explorer Button
     const folderBtn = document.createElement("button");
     folderBtn.className = "clip-portal-icon-btn";
-    folderBtn.title = "Klipler Klasörünü Aç (Windows Gezgini)";
+    folderBtn.title = `Klipler Klasörünü Aç (${FILE_EXPLORER_NAME})`;
     folderBtn.innerHTML = ICONS.folder;
     folderBtn.addEventListener("click", (e) => {
       e.stopPropagation();
