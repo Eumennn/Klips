@@ -557,6 +557,15 @@ def ensure_whatsapp_compatible(file_path, skip_if_compliant=False):
                 "-movflags", "+faststart",
                 out_path
             ]
+        elif is_h264 and is_yuv420p and is_mp4_container and has_audio:
+            # Video is already compliant H.264! Do NOT re-encode video! Just transcode audio to AAC (0.1s)!
+            cmd = [
+                FFMPEG_PATH, "-y", "-i", file_path,
+                "-c:v", "copy",
+                "-c:a", "aac", "-b:a", "128k",
+                "-movflags", "+faststart",
+                out_path
+            ]
         elif has_audio:
             # Transcode video to H.264 yuv420p and audio to AAC
             cmd = [
@@ -737,8 +746,8 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
 
     out_template = os.path.join(CLIP_DIR, "%(id)s_%(epoch)s.%(ext)s")
 
-    # Always best 1080p / HD H.264 + AAC
-    video_format = "bestvideo[vcodec^=avc][height<=1080]+bestaudio[acodec^=mp4a]/bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]/best"
+    # Format: prefer AVC H.264 + AAC 1080p, with fast fallback to 1080p best
+    video_format = "bestvideo[vcodec^=avc][height<=1080]+bestaudio[acodec^=mp4a]/bestvideo[height<=1080]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[ext=mp4][height<=1080]/best"
 
     cmd = [
         sys.executable,
@@ -748,6 +757,8 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
         "--paths", f"temp:{CLIP_DIR}",
         "--no-playlist",
         "--force-overwrites",
+        "--extractor-args", "youtube:player_client=android,web",
+        "--concurrent-fragments", "5",
         "-f", video_format,
         "--merge-output-format", "mp4",
         "-o", out_template,
@@ -758,10 +769,10 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
     if shutil.which("node"):
         cmd.extend(["--js-runtimes", "node"])
 
-    # Enforce section limits if user specifically trimmed
+    # Enforce section limits if user specifically trimmed (fast stream cut without forced re-encode)
     if has_time_range:
         section_str = f"*{int(start_sec)}-{int(end_sec)}"
-        cmd.extend(["--download-sections", section_str, "--force-keyframes-at-cuts"])
+        cmd.extend(["--download-sections", section_str])
 
     if FFMPEG_PATH:
         cmd.extend(["--ffmpeg-location", FFMPEG_PATH])
@@ -801,7 +812,7 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
     ]
     if new_files:
         latest = max(new_files, key=os.path.getmtime)
-        final_file = ensure_whatsapp_compatible(latest)
+        final_file = ensure_whatsapp_compatible(latest, skip_if_compliant=True)
         copy_file_to_clipboard(final_file)
         return {"path": final_file}
 

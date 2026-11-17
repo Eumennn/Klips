@@ -238,7 +238,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (clipHistory.length === 0) {
       historyList.innerHTML = `
         <div class="empty-hint">
-          Henüz klip yok. Videolardaki ⚡ butonuna basarak anında panoya alabilirsiniz.
+          Henüz klip yok. Videodaki klip butonuna basarak anında panoya kopyalayabilirsiniz.
         </div>
       `;
       return;

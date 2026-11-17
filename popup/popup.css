@@ -41,16 +41,29 @@
   padding: 0;
 }
 
+html {
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 body {
-  width: 340px;
-  min-height: 440px;
+  width: 330px;
+  min-height: auto;
+  height: fit-content;
+  margin: 0;
+  padding: 0;
   background: var(--bg-app);
   color: var(--text-main);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 13px;
   line-height: 1.4;
   user-select: none;
-  overflow-x: hidden;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -58,8 +71,8 @@ body {
 .app-shell {
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  gap: 12px;
+  padding: 13px 14px 10px 14px;
+  gap: 10px;
 }
 
 /* ---- Header ---- */
@@ -67,7 +80,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 0;
+  padding: 0;
 }
 
 .brand {
@@ -159,11 +172,11 @@ body {
 .cmd-bar {
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: var(--radius-lg);
-  padding: 12px;
+  border-radius: var(--radius-md);
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   box-shadow: var(--shadow-sm);
 }
 
@@ -171,11 +184,11 @@ body {
   position: relative;
   display: flex;
   align-items: center;
-  height: 38px;
+  height: 35px;
   background: var(--bg-input);
   border: 1.5px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0 8px 0 11px;
+  border-radius: var(--radius-sm);
+  padding: 0 8px 0 10px;
   transition: all 0.15s ease;
   gap: 6px;
 }
@@ -244,20 +257,20 @@ body {
 }
 
 .primary-action-btn {
-  height: 38px;
+  height: 35px;
   background: linear-gradient(135deg, #350842, #5a1170);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: #ffffff;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.18s ease;
-  box-shadow: 0 4px 14px rgba(53, 8, 66, 0.35);
+  box-shadow: 0 3px 12px rgba(53, 8, 66, 0.3);
   letter-spacing: -0.01em;
 }
 
@@ -475,12 +488,12 @@ body {
 .history-scroll {
   display: flex;
   flex-direction: column;
-  max-height: 170px;
+  max-height: 140px;
   overflow-y: auto;
   border: 1px solid var(--border-card);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--bg-card);
-  padding: 4px;
+  padding: 3px;
   box-shadow: var(--shadow-sm);
 }
 
@@ -499,11 +512,11 @@ body {
 }
 
 .empty-hint {
-  padding: 20px 14px;
+  padding: 9px 10px;
   text-align: center;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-dim);
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 /* Clip Row */
