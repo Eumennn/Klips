@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 /* ==========================================================================
    CLIP — Universal Video Clipboard: Minimalist & Pure Icon Aesthetic
    Aesthetic: Ultra-Clean Glassmorphism (Apple Dynamic Island / Linear style)
@@ -340,22 +342,29 @@ button.clip-yt-watch-btn.active {
   color: inherit !important;
 }
 
-/* Compact YouTube Trimmer Flyout Panel (Ufak & Kompakt & Slop Olmayan UI) */
+/* Compact YouTube Trimmer Flyout Panel (Inter Font & #350842 Theme) */
 .clip-yt-flyout-panel {
   position: fixed !important;
-  width: 360px !important;
+  width: 380px !important;
+  max-width: calc(100vw - 32px) !important;
   background: #0f1118 !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 14px !important;
+  border-radius: 16px !important;
   padding: 16px !important;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 30px rgba(53, 8, 66, 0.45) !important;
   z-index: 2147483647 !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   color: #f8fafc !important;
   box-sizing: border-box !important;
   animation: clipFlyoutIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.clip-yt-flyout-panel,
+.clip-yt-flyout-panel * {
+  box-sizing: border-box !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
 @keyframes clipFlyoutIn {
@@ -367,7 +376,7 @@ button.clip-yt-watch-btn.active {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  margin-bottom: 14px !important;
+  margin-bottom: 12px !important;
 }
 
 .clip-flyout-title {
@@ -375,21 +384,24 @@ button.clip-yt-watch-btn.active {
   align-items: center !important;
   gap: 8px !important;
   font-size: 14px !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
   color: #ffffff !important;
+  letter-spacing: -0.01em !important;
 }
 
 .clip-flyout-bolt {
-  color: #c084fc !important;
+  color: #f3e8ff !important;
   display: flex !important;
   align-items: center !important;
 }
 
 .clip-flyout-time-tag {
   font-size: 11.5px !important;
-  font-family: monospace !important;
-  color: #94a3b8 !important;
-  background: rgba(255, 255, 255, 0.06) !important;
+  font-family: 'Inter', monospace !important;
+  font-weight: 600 !important;
+  color: #f3e8ff !important;
+  background: rgba(53, 8, 66, 0.6) !important;
+  border: 1px solid rgba(107, 20, 133, 0.5) !important;
   padding: 3px 8px !important;
   border-radius: 6px !important;
 }
@@ -398,7 +410,7 @@ button.clip-yt-watch-btn.active {
   background: none !important;
   border: none !important;
   color: #94a3b8 !important;
-  font-size: 16px !important;
+  font-size: 15px !important;
   cursor: pointer !important;
   padding: 2px 6px !important;
   border-radius: 6px !important;
@@ -411,10 +423,12 @@ button.clip-yt-watch-btn.active {
 }
 
 .clip-flyout-presets-label {
-  font-size: 11px !important;
-  font-weight: 500 !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
   color: #94a3b8 !important;
   margin-bottom: 6px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
 }
 
 .clip-flyout-presets {
@@ -422,6 +436,7 @@ button.clip-yt-watch-btn.active {
   grid-template-columns: repeat(4, 1fr) !important;
   gap: 6px !important;
   margin-bottom: 14px !important;
+  width: 100% !important;
 }
 
 .clip-preset-pill {
@@ -429,95 +444,117 @@ button.clip-yt-watch-btn.active {
   background: rgba(255, 255, 255, 0.05) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: 8px !important;
-  color: #e2e8f0 !important;
+  color: #cbd5e1 !important;
   font-size: 11.5px !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
   cursor: pointer !important;
   text-align: center !important;
-  transition: all 0.18s ease !important;
+  transition: all 0.15s ease !important;
+  user-select: none !important;
 }
 
 .clip-preset-pill:hover {
-  background: rgba(168, 85, 247, 0.2) !important;
-  border-color: rgba(168, 85, 247, 0.4) !important;
+  background: rgba(53, 8, 66, 0.5) !important;
+  border-color: rgba(107, 20, 133, 0.6) !important;
   color: #ffffff !important;
 }
 
 .clip-preset-pill.active {
-  background: rgba(168, 85, 247, 0.3) !important;
-  border-color: rgba(168, 85, 247, 0.8) !important;
+  background: #350842 !important;
+  border-color: #8c1faf !important;
   color: #ffffff !important;
-  font-weight: 600 !important;
+  box-shadow: 0 0 10px rgba(53, 8, 66, 0.5) !important;
 }
 
+/* Time inputs range grid — Zero overflow card design */
 .clip-flyout-range-grid {
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
   gap: 10px !important;
   margin-bottom: 12px !important;
+  width: 100% !important;
 }
 
-.clip-time-col label {
-  display: block !important;
-  font-size: 11px !important;
-  font-weight: 500 !important;
-  color: #94a3b8 !important;
-  margin-bottom: 4px !important;
+.clip-time-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 10px !important;
+  padding: 8px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+  width: 100% !important;
 }
 
-.clip-time-input-group {
+.clip-time-card-header {
   display: flex !important;
   align-items: center !important;
-  gap: 4px !important;
+  justify-content: space-between !important;
+  width: 100% !important;
 }
 
-.clip-time-inp {
-  flex: 1 !important;
-  min-width: 0 !important;
-  height: 34px !important;
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 8px !important;
-  color: #ffffff !important;
-  font-family: monospace !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  text-align: center !important;
-  outline: none !important;
-  transition: border-color 0.15s ease !important;
-}
-
-.clip-time-inp:focus {
-  border-color: #a855f7 !important;
-  box-shadow: 0 0 8px rgba(168, 85, 247, 0.3) !important;
+.clip-time-label {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: #94a3b8 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
 }
 
 .clip-time-snap-btn {
-  height: 34px !important;
-  padding: 0 8px !important;
-  background: rgba(255, 255, 255, 0.07) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 8px !important;
-  color: #c084fc !important;
-  font-size: 11px !important;
+  height: 22px !important;
+  padding: 0 7px !important;
+  background: rgba(53, 8, 66, 0.5) !important;
+  border: 1px solid rgba(107, 20, 133, 0.4) !important;
+  border-radius: 6px !important;
+  color: #f3e8ff !important;
+  font-size: 10.5px !important;
   font-weight: 600 !important;
   cursor: pointer !important;
   white-space: nowrap !important;
   transition: all 0.15s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  user-select: none !important;
 }
 
 .clip-time-snap-btn:hover {
-  background: rgba(168, 85, 247, 0.2) !important;
+  background: #350842 !important;
   color: #ffffff !important;
+  border-color: #8c1faf !important;
+}
+
+.clip-time-inp {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 34px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  font-family: 'Inter', monospace !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  text-align: center !important;
+  outline: none !important;
+  transition: all 0.15s ease !important;
+}
+
+.clip-time-inp:focus {
+  border-color: #8c1faf !important;
+  background: rgba(53, 8, 66, 0.3) !important;
+  box-shadow: 0 0 0 3px rgba(53, 8, 66, 0.35) !important;
 }
 
 .clip-flyout-summary {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  padding: 8px 10px !important;
-  background: rgba(168, 85, 247, 0.08) !important;
-  border: 1px solid rgba(168, 85, 247, 0.18) !important;
+  padding: 8px 12px !important;
+  background: rgba(53, 8, 66, 0.25) !important;
+  border: 1px solid rgba(107, 20, 133, 0.3) !important;
   border-radius: 8px !important;
   font-size: 11.5px !important;
   margin-bottom: 14px !important;
@@ -526,13 +563,13 @@ button.clip-yt-watch-btn.active {
 .clip-summary-compat {
   color: #10b981 !important;
   font-size: 10.5px !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
 }
 
 .clip-flyout-submit-btn {
   width: 100% !important;
   height: 42px !important;
-  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%) !important;
+  background: linear-gradient(135deg, #350842 0%, #5d0f73 100%) !important;
   border: none !important;
   border-radius: 10px !important;
   color: #ffffff !important;
@@ -543,13 +580,15 @@ button.clip-yt-watch-btn.active {
   justify-content: center !important;
   gap: 8px !important;
   cursor: pointer !important;
-  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4) !important;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 4px 16px rgba(53, 8, 66, 0.45) !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  user-select: none !important;
 }
 
 .clip-flyout-submit-btn:hover {
+  background: linear-gradient(135deg, #440b54 0%, #6b1485 100%) !important;
   transform: translateY(-1px) !important;
-  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.5) !important;
+  box-shadow: 0 6px 22px rgba(53, 8, 66, 0.6) !important;
 }
 
 .clip-flyout-submit-btn:active {

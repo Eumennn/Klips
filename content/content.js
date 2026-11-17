@@ -724,13 +724,17 @@
     const btnWrapper = document.createElement("div");
     btnWrapper.className = "clip-yt-watch-btn-wrapper";
 
+    btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
+    btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
+    btnWrapper.addEventListener("click", (e) => e.stopPropagation());
+
     const watchBtn = document.createElement("button");
     watchBtn.className = "clip-yt-watch-btn";
     if (!isCompanionActive) watchBtn.classList.add("clip-paused");
     watchBtn.setAttribute("type", "button");
     watchBtn.setAttribute("aria-label", "Klip Al (CLIP)");
     watchBtn.title = "CLIP — Videodan klip kırpıp panoya kopyala";
-    watchBtn.style.cssText = "height: 36px !important; min-height: 36px !important; max-height: 36px !important; padding: 0 16px !important; border-radius: 18px !important; background: #350842 !important; background-color: #350842 !important; color: #ffffff !important; fill: #ffffff !important; border: none !important; border-width: 0 !important; outline: none !important; box-shadow: 0 1px 4px rgba(53, 8, 66, 0.4) !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; font-family: Roboto, Arial, sans-serif !important; font-size: 14px !important; font-weight: 500 !important; cursor: pointer !important; user-select: none !important; box-sizing: border-box !important; vertical-align: middle !important; transition: all 0.18s ease !important;";
+    watchBtn.style.cssText = "height: 36px !important; min-height: 36px !important; max-height: 36px !important; padding: 0 16px !important; border-radius: 18px !important; background: #350842 !important; background-color: #350842 !important; color: #ffffff !important; fill: #ffffff !important; border: none !important; border-width: 0 !important; outline: none !important; box-shadow: 0 1px 4px rgba(53, 8, 66, 0.4) !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; font-family: 'Inter', -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important; font-size: 14px !important; font-weight: 500 !important; cursor: pointer !important; user-select: none !important; box-sizing: border-box !important; vertical-align: middle !important; transition: all 0.18s ease !important;";
     watchBtn.innerHTML = `
       <span class="clip-yt-watch-icon" style="color:#f3e8ff !important;">${ICONS.scissors}</span>
       <span class="clip-yt-watch-label">Klip Al</span>
@@ -785,14 +789,15 @@
   }
 
   /**
-   * Compact Floating Clipper Flyout for YouTube Watch Videos
+   * Compact Floating Clipper Flyout for YouTube Watch Videos (Zero-Overflow Inter UI)
    */
   function toggleYouTubeWatchTrimmer(btnWrapper) {
     const existingFlyout = document.querySelector(".clip-yt-flyout-panel");
     const watchBtn = btnWrapper.querySelector(".clip-yt-watch-btn");
 
     if (existingFlyout) {
-      existingFlyout.remove();
+      if (existingFlyout.__clip_cleanup) existingFlyout.__clip_cleanup();
+      else existingFlyout.remove();
       setWatchBtnActive(watchBtn, false);
       return;
     }
@@ -810,18 +815,29 @@
     const flyout = document.createElement("div");
     flyout.className = "clip-yt-flyout-panel";
 
-    // Fixed coordinates relative to watchBtn to avoid any parent overflow:hidden clipping
-    try {
-      const rect = watchBtn.getBoundingClientRect();
-      flyout.style.position = "fixed";
-      flyout.style.top = (rect.bottom + 8) + "px";
-      if (rect.right + 250 > window.innerWidth) {
-        flyout.style.left = Math.max(12, rect.right - 360) + "px";
-      } else {
-        flyout.style.left = rect.left + "px";
-      }
-      flyout.style.zIndex = "2147483647";
-    } catch (_) {}
+    // Accurate positioning relative to watchBtn
+    const positionFlyout = () => {
+      try {
+        if (!document.body.contains(flyout) || !document.body.contains(watchBtn)) return;
+        const rect = watchBtn.getBoundingClientRect();
+        const flyoutWidth = 380;
+        let top = rect.bottom + 8;
+        let left = rect.left;
+        if (left + flyoutWidth > window.innerWidth - 16) {
+          left = window.innerWidth - flyoutWidth - 16;
+        }
+        if (left < 16) left = 16;
+        flyout.style.top = top + "px";
+        flyout.style.left = left + "px";
+      } catch (_) {}
+    };
+
+    flyout.style.position = "fixed";
+    flyout.style.zIndex = "2147483647";
+    positionFlyout();
+
+    window.addEventListener("scroll", positionFlyout, { passive: true });
+    window.addEventListener("resize", positionFlyout, { passive: true });
 
     flyout.innerHTML = `
       <div class="clip-flyout-header">
@@ -835,7 +851,7 @@
         </div>
       </div>
 
-      <div class="clip-flyout-presets-label">Hızlı Süre Seçimi (Şu ana kadar):</div>
+      <div class="clip-flyout-presets-label">Hızlı Süre Seçimi:</div>
       <div class="clip-flyout-presets">
         <button type="button" class="clip-preset-pill" data-preset="15">Son 15s</button>
         <button type="button" class="clip-preset-pill active" data-preset="30">Son 30s</button>
@@ -844,19 +860,19 @@
       </div>
 
       <div class="clip-flyout-range-grid">
-        <div class="clip-time-col">
-          <label>Başlangıç</label>
-          <div class="clip-time-input-group">
-            <input type="text" class="clip-time-inp" id="clip-start-inp" value="${formatTime(initStart)}" placeholder="00:00">
-            <button type="button" class="clip-time-snap-btn" id="clip-snap-start" title="Videonun şu anki saniyesini başlangıç yap">🎯 Şimdi</button>
+        <div class="clip-time-card">
+          <div class="clip-time-card-header">
+            <span class="clip-time-label">BAŞLANGIÇ</span>
+            <button type="button" class="clip-time-snap-btn" id="clip-snap-start" title="Videonun şu anki saniyesini başlangıç yap">🎯 Şu An</button>
           </div>
+          <input type="text" class="clip-time-inp" id="clip-start-inp" value="${formatTime(initStart)}" placeholder="00:00">
         </div>
-        <div class="clip-time-col">
-          <label>Bitiş</label>
-          <div class="clip-time-input-group">
-            <input type="text" class="clip-time-inp" id="clip-end-inp" value="${formatTime(initEnd)}" placeholder="00:30">
-            <button type="button" class="clip-time-snap-btn" id="clip-snap-end" title="Videonun şu anki saniyesini bitiş yap">🎯 Şimdi</button>
+        <div class="clip-time-card">
+          <div class="clip-time-card-header">
+            <span class="clip-time-label">BİTİŞ</span>
+            <button type="button" class="clip-time-snap-btn" id="clip-snap-end" title="Videonun şu anki saniyesini bitiş yap">🎯 Şu An</button>
           </div>
+          <input type="text" class="clip-time-inp" id="clip-end-inp" value="${formatTime(initEnd)}" placeholder="00:30">
         </div>
       </div>
 
@@ -876,11 +892,18 @@
     flyout.addEventListener("mousedown", (e) => e.stopPropagation());
     flyout.addEventListener("click", (e) => e.stopPropagation());
 
-    const closeBtn = flyout.querySelector(".clip-flyout-close");
-    closeBtn.addEventListener("click", () => {
-      flyout.remove();
+    const cleanupFlyout = () => {
+      clearInterval(ticker);
+      window.removeEventListener("scroll", positionFlyout);
+      window.removeEventListener("resize", positionFlyout);
+      document.removeEventListener("pointerdown", onOutsideClick);
+      if (document.body.contains(flyout)) flyout.remove();
       setWatchBtnActive(watchBtn, false);
-    });
+    };
+    flyout.__clip_cleanup = cleanupFlyout;
+
+    const closeBtn = flyout.querySelector(".clip-flyout-close");
+    closeBtn.addEventListener("click", cleanupFlyout);
 
     const startInp = flyout.querySelector("#clip-start-inp");
     const endInp = flyout.querySelector("#clip-end-inp");
@@ -968,8 +991,7 @@
 
       // Close flyout after initiating capture
       setTimeout(() => {
-        flyout.remove();
-        setWatchBtnActive(watchBtn, false);
+        cleanupFlyout();
       }, 1200);
     });
 
@@ -977,15 +999,13 @@
 
     // Click outside listener to dismiss
     const onOutsideClick = (e) => {
-      if (!flyout.contains(e.target) && !watchBtn.contains(e.target)) {
-        flyout.remove();
-        setWatchBtnActive(watchBtn, false);
-        document.removeEventListener("pointerdown", onOutsideClick);
+      if (!flyout.contains(e.target) && !btnWrapper.contains(e.target)) {
+        cleanupFlyout();
       }
     };
     setTimeout(() => {
       document.addEventListener("pointerdown", onOutsideClick);
-    }, 100);
+    }, 120);
   }
 
 
