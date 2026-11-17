@@ -3,9 +3,10 @@
 ## Kurulum
 
 1. GitHub Releases sayfasından sisteminize uygun hazır paketi (`CLIP-Windows.zip` veya `CLIP-macOS.zip`) indirin ve klasöre çıkartın.
-2. Başlatıcıyı tek tıkla çalıştırın (tüm kütüphaneleri otomatik kurar ve servisi hemen başlatır):
+2. Başlatıcıyı tek tıkla çalıştırın (gerekli kütüphaneleri otomatik kurar ve servisi başlatır):
    - Windows: `CLIP.bat`
-   - Mac: `CLIP.app` veya `CLIP.command`
+   - Mac: `CLIP.command` (veya `CLIP.app`)
+     *(Mac'te ilk çalıştırmada güvenlik uyarısı verirse dosyaya sağ tıklayıp "Aç"ı seçin)*
 3. Tarayıcınızda (Chrome / Brave / Edge) eklentiler sayfasına gidin (`chrome://extensions` veya `brave://extensions`).
 4. Sağ üstten "Geliştirici Modu"nu açın, "Paketlenmemiş Öğe Yükle" butonuna tıklayıp bu klasörü seçin.
 

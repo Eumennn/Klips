@@ -2,3 +2,5 @@ pystray>=0.19.5
 Pillow>=10.0.0
 yt-dlp>=2024.10.0
 imageio-ffmpeg>=0.5.1
+pyobjc-core>=10.0; sys_platform == 'darwin'
+pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'

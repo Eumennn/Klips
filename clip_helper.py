@@ -392,30 +392,69 @@ def copy_file_to_windows_clipboard(file_path):
         return False
 
 def copy_file_to_macos_clipboard(file_path):
-    """Copies the file to macOS Clipboard (Pasteboard) using AppleScript POSIX file (native Cmd+V paste)"""
+    """
+    Copies the video file to macOS Clipboard (Pasteboard) so user can press Cmd+V in WhatsApp, Discord, Finder, etc.
+    Tries 4 robust fallback mechanisms:
+    1. PyObjC / AppKit NSPasteboard (fastest, native Cocoa)
+    2. Built-in Swift Cocoa bridge (/usr/bin/swift)
+    3. AppleScript StandardAdditions (no Finder TCC permission needed)
+    4. AppleScript Finder fallback
+    """
     abs_path = os.path.abspath(file_path)
     if not os.path.exists(abs_path):
         print(f"⚠️ [CLIP] Cannot copy to clipboard, file does not exist: {abs_path}")
         return False
 
+    # Method 1: PyObjC / AppKit
     try:
-        escaped_path = abs_path.replace('\\', '\\\\').replace('"', '\\"')
-        apple_script = f'tell application "Finder" to set the clipboard to (POSIX file "{escaped_path}")'
-        res = subprocess.run(["osascript", "-e", apple_script], capture_output=True, text=True)
-        if res.returncode == 0:
-            print(f"📋 [CLIP] Copied to macOS Clipboard (⌘V ready): {abs_path}")
-            notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan ⌘V yapabilirsiniz.")
-            try:
+        from AppKit import NSPasteboard, NSArray, NSURL
+        pb = NSPasteboard.generalPasteboard()
+        pb.clearContents()
+        url = NSURL.fileURLWithPath_(abs_path)
+        pb.writeObjects_(NSArray.arrayWithObject_(url))
+        print(f"📋 [CLIP] Copied to macOS Clipboard (AppKit): {abs_path}")
+        notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan ⌘V yapabilirsiniz.")
+        cleanup_temp_files()
+        return True
+    except Exception:
+        pass
+
+    # Method 2: Swift Cocoa one-liner (uses built-in /usr/bin/swift on macOS)
+    if shutil.which("swift"):
+        try:
+            escaped = abs_path.replace('"', '\\"')
+            swift_cmd = f'import Cocoa; let pb = NSPasteboard.general; pb.clearContents(); pb.writeObjects([NSURL(fileURLWithPath: "{escaped}")])'
+            res = subprocess.run(["swift", "-e", swift_cmd], capture_output=True, text=True, timeout=5)
+            if res.returncode == 0:
+                print(f"📋 [CLIP] Copied to macOS Clipboard (Swift bridge): {abs_path}")
+                notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan ⌘V yapabilirsiniz.")
                 cleanup_temp_files()
-            except Exception:
-                pass
+                return True
+        except Exception:
+            pass
+
+    # Method 3: AppleScript StandardAdditions (no Finder TCC permission check)
+    try:
+        escaped = abs_path.replace('\\', '\\\\').replace('"', '\\"')
+        apple_script = f'set the clipboard to (POSIX file "{escaped}")'
+        res = subprocess.run(["osascript", "-e", apple_script], capture_output=True, text=True, timeout=5)
+        if res.returncode == 0:
+            print(f"📋 [CLIP] Copied to macOS Clipboard (StandardAdditions): {abs_path}")
+            notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan ⌘V yapabilirsiniz.")
+            cleanup_temp_files()
             return True
         else:
-            print(f"⚠️ [CLIP] osascript failed: {res.stderr}")
-            return False
+            # Method 4: Finder fallback
+            res2 = subprocess.run(["osascript", "-e", f'tell application "Finder" to set the clipboard to (POSIX file "{escaped}")'], capture_output=True, text=True, timeout=5)
+            if res2.returncode == 0:
+                print(f"📋 [CLIP] Copied to macOS Clipboard (Finder): {abs_path}")
+                notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan ⌘V yapabilirsiniz.")
+                cleanup_temp_files()
+                return True
     except Exception as e:
         print(f"⚠️ [CLIP] macOS clipboard copy error: {e}")
-        return False
+
+    return False
 
 def copy_file_to_clipboard(file_path):
     if IS_WINDOWS:
