@@ -241,89 +241,6 @@
   border-color: rgba(239, 68, 68, 0.45) !important;
 }
 
-/* --------------------------------------------------------------------------
-   3. CLIP PRO Modal (1-Minute Limit)
-   -------------------------------------------------------------------------- */
-.clip-pro-overlay {
-  position: fixed !important;
-  inset: 0 !important;
-  z-index: 2147483647 !important;
-  background: rgba(0, 0, 0, 0.75) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 20px !important;
-  animation: clip-fade-in 0.2s ease !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-}
-
-@keyframes clip-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.clip-pro-card {
-  width: 100% !important;
-  max-width: 440px !important;
-  background: rgba(16, 20, 34, 0.98) !important;
-  border: 1px solid rgba(168, 85, 247, 0.45) !important;
-  border-radius: 20px !important;
-  padding: 26px !important;
-  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.9), 0 0 35px rgba(168, 85, 247, 0.3) !important;
-  color: #ffffff !important;
-  animation: clip-card-zoom 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-@keyframes clip-card-zoom {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-.clip-pro-badge {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  padding: 4px 10px !important;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.3)) !important;
-  border: 1px solid rgba(168, 85, 247, 0.5) !important;
-  border-radius: 9999px !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  color: #e9d5ff !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
-  margin-bottom: 14px !important;
-}
-
-.clip-pro-title {
-  font-size: 20px !important;
-  font-weight: 700 !important;
-  color: #ffffff !important;
-  margin: 0 0 8px 0 !important;
-  letter-spacing: -0.02em !important;
-}
-
-.clip-pro-desc {
-  font-size: 13px !important;
-  color: #94a3b8 !important;
-  line-height: 1.5 !important;
-  margin: 0 0 20px 0 !important;
-}
-
-.clip-pro-features {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 12px !important;
-  padding: 14px !important;
-  margin-bottom: 22px !important;
-}
-
-.clip-pro-feature-item {
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
 /* ==========================================================================
    YouTube Horizontal Video Native Action Button & Compact Trimmer Flyout
    Birebir YouTube like button stili — aynı boyut, rounding ve bounds
@@ -353,8 +270,12 @@ div.clip-yt-watch-btn-wrapper button {
   color: #f1f1f1 !important;
   fill: #f1f1f1 !important;
   border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
   outline: none !important;
   box-shadow: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;

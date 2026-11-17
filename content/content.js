@@ -730,10 +730,22 @@
     watchBtn.setAttribute("type", "button");
     watchBtn.setAttribute("aria-label", "Klip Al (CLIP)");
     watchBtn.title = "CLIP — Videodan klip kırpıp panoya kopyala";
+    watchBtn.style.cssText = "height: 36px !important; min-height: 36px !important; max-height: 36px !important; padding: 0 16px !important; border-radius: 18px !important; background: rgba(255, 255, 255, 0.1) !important; background-color: rgba(255, 255, 255, 0.1) !important; color: #f1f1f1 !important; fill: #f1f1f1 !important; border: none !important; outline: none !important; box-shadow: none !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; font-family: Roboto, Arial, sans-serif !important; font-size: 14px !important; font-weight: 500 !important; cursor: pointer !important; user-select: none !important; box-sizing: border-box !important; vertical-align: middle !important; transition: background-color 0.18s ease !important;";
     watchBtn.innerHTML = `
       <span class="clip-yt-watch-icon">${ICONS.scissors}</span>
       <span class="clip-yt-watch-label">Klip Al</span>
     `;
+
+    watchBtn.addEventListener("mouseenter", () => {
+      if (!watchBtn.classList.contains("active")) {
+        watchBtn.style.setProperty("background-color", "rgba(255, 255, 255, 0.2)", "important");
+      }
+    });
+    watchBtn.addEventListener("mouseleave", () => {
+      if (!watchBtn.classList.contains("active")) {
+        watchBtn.style.setProperty("background-color", "rgba(255, 255, 255, 0.1)", "important");
+      }
+    });
 
     watchBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
     watchBtn.addEventListener("mousedown", (e) => e.stopPropagation());
@@ -761,6 +773,17 @@
     }
   }
 
+  function setWatchBtnActive(watchBtn, isActive) {
+    if (!watchBtn) return;
+    if (isActive) {
+      watchBtn.classList.add("active");
+      watchBtn.style.setProperty("background-color", "rgba(124, 58, 237, 0.3)", "important");
+    } else {
+      watchBtn.classList.remove("active");
+      watchBtn.style.setProperty("background-color", "rgba(255, 255, 255, 0.1)", "important");
+    }
+  }
+
   /**
    * Compact Floating Clipper Flyout for YouTube Watch Videos
    */
@@ -770,11 +793,11 @@
 
     if (existingFlyout) {
       existingFlyout.remove();
-      if (watchBtn) watchBtn.classList.remove("active");
+      setWatchBtnActive(watchBtn, false);
       return;
     }
 
-    if (watchBtn) watchBtn.classList.add("active");
+    setWatchBtnActive(watchBtn, true);
 
     const videoEl = document.querySelector("ytd-watch-flexy video, #movie_player video, video");
     const curTime = videoEl ? (videoEl.currentTime || 0) : 0;
@@ -856,7 +879,7 @@
     const closeBtn = flyout.querySelector(".clip-flyout-close");
     closeBtn.addEventListener("click", () => {
       flyout.remove();
-      if (watchBtn) watchBtn.classList.remove("active");
+      setWatchBtnActive(watchBtn, false);
     });
 
     const startInp = flyout.querySelector("#clip-start-inp");
@@ -946,7 +969,7 @@
       // Close flyout after initiating capture
       setTimeout(() => {
         flyout.remove();
-        if (watchBtn) watchBtn.classList.remove("active");
+        setWatchBtnActive(watchBtn, false);
       }, 1200);
     });
 
@@ -956,7 +979,7 @@
     const onOutsideClick = (e) => {
       if (!flyout.contains(e.target) && !watchBtn.contains(e.target)) {
         flyout.remove();
-        if (watchBtn) watchBtn.classList.remove("active");
+        setWatchBtnActive(watchBtn, false);
         document.removeEventListener("pointerdown", onOutsideClick);
       }
     };
