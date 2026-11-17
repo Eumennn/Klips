@@ -804,9 +804,15 @@ def main():
 
     tray = setup_tray(server)
     if tray:
+        def on_tray_ready(icon):
+            try:
+                icon.notify("CLIP Hazır! ⚡", "Sistem tepsisinde aktif. TikTok, Instagram ve X videoları tek tıkla kopyalanabilir.")
+            except Exception:
+                pass
+
         # Sistem tepsisi döngüsünü ana iş parçacığında çalıştır
         try:
-            tray.run()
+            tray.run(setup=on_tray_ready)
         except KeyboardInterrupt:
             tray.stop()
             server.shutdown()
@@ -817,4 +823,9 @@ def main():
             server.shutdown()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        with open(os.path.join(current_dir, "error.log"), "w", encoding="utf-8") as f:
+            import traceback
+            traceback.print_exc(file=f)
