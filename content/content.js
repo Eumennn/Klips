@@ -815,76 +815,55 @@
     const flyout = document.createElement("div");
     flyout.className = "clip-yt-flyout-panel";
 
-    // Accurate positioning relative to watchBtn
-    const positionFlyout = () => {
-      try {
-        if (!document.body.contains(flyout) || !document.body.contains(watchBtn)) return;
-        const rect = watchBtn.getBoundingClientRect();
-        const flyoutWidth = 380;
-        let top = rect.bottom + 8;
-        let left = rect.left;
-        if (left + flyoutWidth > window.innerWidth - 16) {
-          left = window.innerWidth - flyoutWidth - 16;
-        }
-        if (left < 16) left = 16;
-        flyout.style.top = top + "px";
-        flyout.style.left = left + "px";
-      } catch (_) {}
-    };
-
+    // Fixed horizontal dock at bottom-center of viewport
     flyout.style.position = "fixed";
+    flyout.style.bottom = "28px";
+    flyout.style.left = "50%";
+    flyout.style.transform = "translateX(-50%)";
     flyout.style.zIndex = "2147483647";
-    positionFlyout();
-
-    window.addEventListener("scroll", positionFlyout, { passive: true });
-    window.addEventListener("resize", positionFlyout, { passive: true });
 
     flyout.innerHTML = `
-      <div class="clip-flyout-header">
-        <div class="clip-flyout-title">
-          <span class="clip-flyout-bolt">${ICONS.bolt}</span>
-          <span>Klip Al (CLIP)</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:8px;">
+      <div class="clip-flyout-top-row">
+        <div class="clip-flyout-brand">
+          <span class="clip-flyout-icon">${ICONS.scissors}</span>
+          <span class="clip-flyout-title">Klip Al</span>
           <span class="clip-flyout-time-tag" id="clip-cur-time-display">${formatTime(curTime)}</span>
-          <button class="clip-flyout-close" type="button" title="Kapat">✕</button>
         </div>
+
+        <div class="clip-flyout-presets-wrap">
+          <span class="clip-presets-title">Süre:</span>
+          <button type="button" class="clip-preset-pill" data-preset="15">15s</button>
+          <button type="button" class="clip-preset-pill active" data-preset="30">30s</button>
+          <button type="button" class="clip-preset-pill" data-preset="60">60s</button>
+          <button type="button" class="clip-preset-pill" data-preset="120">2dk</button>
+        </div>
+
+        <button class="clip-flyout-close" type="button" title="Kapat">✕</button>
       </div>
 
-      <div class="clip-flyout-presets-label">Hızlı Süre Seçimi:</div>
-      <div class="clip-flyout-presets">
-        <button type="button" class="clip-preset-pill" data-preset="15">Son 15s</button>
-        <button type="button" class="clip-preset-pill active" data-preset="30">Son 30s</button>
-        <button type="button" class="clip-preset-pill" data-preset="60">Son 60s</button>
-        <button type="button" class="clip-preset-pill" data-preset="120">Son 2dk</button>
-      </div>
-
-      <div class="clip-flyout-range-grid">
-        <div class="clip-time-card">
-          <div class="clip-time-card-header">
-            <span class="clip-time-label">BAŞLANGIÇ</span>
-            <button type="button" class="clip-time-snap-btn" id="clip-snap-start" title="Videonun şu anki saniyesini başlangıç yap">🎯 Şu An</button>
-          </div>
+      <div class="clip-flyout-main-row">
+        <div class="clip-time-pill-group">
+          <span class="clip-time-tag">BAŞLANGIÇ</span>
           <input type="text" class="clip-time-inp" id="clip-start-inp" value="${formatTime(initStart)}" placeholder="00:00">
+          <button type="button" class="clip-time-snap-btn" id="clip-snap-start" title="Videonun şu anki saniyesini başlangıç yap">Şu An</button>
         </div>
-        <div class="clip-time-card">
-          <div class="clip-time-card-header">
-            <span class="clip-time-label">BİTİŞ</span>
-            <button type="button" class="clip-time-snap-btn" id="clip-snap-end" title="Videonun şu anki saniyesini bitiş yap">🎯 Şu An</button>
-          </div>
+
+        <div class="clip-time-pill-group">
+          <span class="clip-time-tag">BİTİŞ</span>
           <input type="text" class="clip-time-inp" id="clip-end-inp" value="${formatTime(initEnd)}" placeholder="00:30">
+          <button type="button" class="clip-time-snap-btn" id="clip-snap-end" title="Videonun şu anki saniyesini bitiş yap">Şu An</button>
         </div>
+
+        <button type="button" class="clip-flyout-submit-btn" id="clip-flyout-submit">
+          <span class="clip-submit-icon">${ICONS.scissors}</span>
+          <span class="clip-submit-text">Klibi Kopyala</span>
+        </button>
       </div>
 
-      <div class="clip-flyout-summary">
-        <span id="clip-duration-summary">⏱️ Klip Süresi: <strong>30 sn</strong></span>
-        <span class="clip-summary-compat">✓ WhatsApp / Discord</span>
+      <div class="clip-flyout-bottom-row">
+        <span id="clip-duration-summary">Klip Süresi: <strong>30 sn</strong></span>
+        <span class="clip-summary-compat">WhatsApp / Discord için panoya kopyalanır</span>
       </div>
-
-      <button type="button" class="clip-flyout-submit-btn" id="clip-flyout-submit">
-        <span class="clip-submit-icon">${ICONS.bolt}</span>
-        <span class="clip-submit-text">Klibi Kopyala (Panoya Al)</span>
-      </button>
     `;
 
     // Event Listeners for Flyout
@@ -894,8 +873,6 @@
 
     const cleanupFlyout = () => {
       clearInterval(ticker);
-      window.removeEventListener("scroll", positionFlyout);
-      window.removeEventListener("resize", positionFlyout);
       document.removeEventListener("pointerdown", onOutsideClick);
       if (document.body.contains(flyout)) flyout.remove();
       setWatchBtnActive(watchBtn, false);
@@ -917,7 +894,7 @@
       const e = parseTimeToSeconds(endInp.value);
       const diff = Math.max(0, e - s);
       const diffStr = diff >= 60 ? `${Math.floor(diff / 60)} dk ${Math.floor(diff % 60)} sn` : `${Math.floor(diff)} sn`;
-      durationSummary.innerHTML = `⏱️ Klip Süresi: <strong>${diffStr}</strong>`;
+      durationSummary.innerHTML = `Klip Süresi: <strong>${diffStr}</strong>`;
     }
 
     // Time update ticker for header display
@@ -982,7 +959,7 @@
 
       submitBtn.disabled = true;
       submitBtn.querySelector(".clip-submit-icon").innerHTML = ICONS.spinner;
-      submitBtn.querySelector(".clip-submit-text").textContent = "Klip Çıkarılıyor & Panoya Alınıyor...";
+      submitBtn.querySelector(".clip-submit-text").textContent = "Klip Hazırlanıyor...";
 
       const cleanUrl = window.location.href.split("&")[0];
       console.log("⚡ [CLIP] Trimming YouTube clip:", cleanUrl, s, e);
