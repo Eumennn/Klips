@@ -30,6 +30,9 @@
   const PASTE_KEY = IS_MAC ? "⌘V" : "Ctrl+V";
   const FILE_EXPLORER_NAME = IS_MAC ? "Finder" : "Dosya Gezgini";
 
+  // System Companion State (Defaults to true at top level)
+  let isCompanionActive = true;
+
 
 
   /**
@@ -199,76 +202,256 @@
   }
 
   /**
-   * 2. TikTok Adapter (Aligned seamlessly in the right vertical action column above the Like button)
-   * Natural flex-column flow, unified #350842 scissors button design.
+   * 2a. TikTok Feed Adapter (For Home/ForYou/User Profile feeds)
+   * Strictly places ONE button per video card, directly ABOVE the author's profile photo (avatar / PP).
+   * Generous margin-bottom ensures ZERO overlap with the avatar. Never touches sidebar.
    */
-  function handleTikTok() {
+  function handleTikTokFeed() {
     if (!window.location.hostname.includes("tiktok.com")) return;
 
-    // Clean up any stray buttons inside comments, headers, search bars
-    document.querySelectorAll(
-      "header .clip-tiktok-action-wrapper, " +
-      "nav .clip-tiktok-action-wrapper, " +
-      "form .clip-tiktok-action-wrapper, " +
-      "[role='search'] .clip-tiktok-action-wrapper, " +
-      "[data-e2e*='comment-box'] .clip-tiktok-action-wrapper, " +
-      ".clip-tiktok-fixed-btn"
-    ).forEach(el => el.remove());
-
-    const isCommentSection = (el) => el.closest("[data-e2e*='comment-list'], [class*='DivCommentListContainer']");
-
-    // Find the Like/Action buttons in TikTok feed or video player
-    const likeButtons = document.querySelectorAll(
-      "[data-e2e='feed-like-icon'], " +
-      "[data-e2e='like-icon'], " +
-      "[data-e2e='like-button'], " +
-      "[data-e2e='browse-like-icon'], " +
-      "[data-e2e*='like'], " +
-      "button[aria-label*='like' i], " +
-      "button[aria-label*='beğen' i], " +
-      "[data-e2e='feed-comment-icon'], " +
-      "[data-e2e='comment-icon']"
+    // Find all video cards in the feed
+    const cards = document.querySelectorAll(
+      "[data-e2e='recommend-list-item-container'], [class*='DivItemContainer'], [class*='ItemContainer'], article"
     );
 
-    for (const likeBtn of likeButtons) {
-      if (isCommentSection(likeBtn)) continue;
+    cards.forEach(card => {
+      // Must NOT be inside a modal, dialog, or DM message popup
+      if (card.closest("nav, aside, header, [role='navigation'], [role='search'], [role='dialog'], [data-e2e='browse-video'], [data-e2e='browse-video-container'], [class*='browse-video-container']")) return;
 
-      // Find unit container for the action button in the column
-      let targetUnit = likeBtn.closest(
-        "[data-e2e*='action-item'], " +
-        "[class*='ActionItem'], " +
-        "[class*='DivItemContainer'], " +
-        "[class*='ItemContainer'], " +
-        "[class*='DivActionItem'], " +
-        "[class*='FeedAction']"
-      ) || likeBtn.closest("button, [role='button']")?.parentElement || likeBtn.closest("button, [role='button']") || likeBtn;
+      const video = card.querySelector("video");
+      if (!video) return;
 
-      if (!targetUnit || !targetUnit.parentElement) continue;
-      if (targetUnit.parentElement.querySelector(".clip-tiktok-action-wrapper")) continue;
+      // Find the action column
+      let actionCol = card.querySelector("[class*='ActionBar'], [class*='ActionItemContainer'], [class*='DivActionItemContainer'], [data-e2e*='action-bar']");
+      if (!actionCol) {
+        const likeBtn = card.querySelector("[data-e2e*='like'], button[aria-label*='like' i], button[aria-label*='beğen' i]");
+        if (likeBtn) {
+          let p = likeBtn.parentElement;
+          while (p && p !== card && p !== document.body) {
+            if (p.childElementCount >= 2 && (p.querySelector("[data-e2e*='comment']") || p.querySelector("[data-e2e*='share']"))) {
+              actionCol = p;
+              break;
+            }
+            p = p.parentElement;
+          }
+        }
+      }
+      if (!actionCol) return;
+
+      // Ensure actionCol is visually a vertical column in the right half of the card, not in the top-left
+      const colRect = actionCol.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      if (colRect.left < cardRect.left + cardRect.width * 0.40 || colRect.left < 200 || colRect.top < 80) return;
+
+      // If already injected as first child of action col, enforce single button and return
+      if (actionCol.firstElementChild && actionCol.firstElementChild.classList.contains("clip-tiktok-action-wrapper")) {
+        let first = true;
+        card.querySelectorAll(".clip-tiktok-action-wrapper").forEach(el => {
+          if (first && el === actionCol.firstElementChild) { first = false; return; }
+          el.remove();
+        });
+        return;
+      }
+
+      // Purge any rogue buttons in this card before injecting
+      card.querySelectorAll(".clip-tiktok-action-wrapper").forEach(el => el.remove());
 
       const btnWrapper = document.createElement("div");
       btnWrapper.className = "clip-tiktok-action-wrapper";
       if (!isCompanionActive) btnWrapper.classList.add("clip-paused");
-      btnWrapper.title = isCompanionActive
-        ? "CLIP — TikTok'u Panoya Kopyala (WhatsApp / Discord)"
+      btnWrapper.title = isCompanionActive 
+        ? "CLIP — TikTok'u Panoya Kopyala (WhatsApp / Discord)" 
         : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
       btnWrapper.innerHTML = `<div class="clip-tiktok-action-circle" title="Panoya Kopyala">${ICONS.scissors}</div>`;
 
-      btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
-      btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
+      btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation(), { capture: true });
+      btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation(), { capture: true });
       btnWrapper.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const card = targetUnit.closest("article, [class*='ItemContainer'], [data-e2e='recommend-list-item-container']") || document.body;
-        const curVideo = card.querySelector("video") || getActiveTikTokVideoElement() || document.querySelector("video");
         const exactUrl = findTikTokVideoUrl(card);
-        console.log("⚡ [CLIP] TikTok captured exact URL:", exactUrl);
-        triggerCapture(btnWrapper, curVideo, "tiktok", exactUrl);
-      });
+        console.log("⚡ [CLIP] TikTok Feed captured URL:", exactUrl);
+        triggerCapture(btnWrapper, video, "tiktok", exactUrl);
+      }, { capture: true });
 
-      // Insert directly ABOVE the button in the action column
-      targetUnit.insertAdjacentElement("beforebegin", btnWrapper);
+      // Insert as FIRST child of action column = directly ABOVE the avatar!
+      actionCol.insertBefore(btnWrapper, actionCol.firstElementChild);
+    });
+  }
+
+  /**
+   * Helper: Locate the upward-pointing navigation arrow (^) in TikTok modal/theater/DM video view.
+   * Completely immune to TikTok class name obfuscation and single/pair button variations.
+   */
+  function findTikTokModalUpArrow() {
+    // 1. Direct query with known selectors (strictly in the right-of-video zone)
+    const exactSelectors = [
+      "button[data-e2e='browse-arrow-up']",
+      "button[data-e2e='arrow-up']",
+      "button[data-e2e='video-arrow-up']",
+      "button[data-e2e='video-arrow-prev']",
+      "button[aria-label*='önceki' i]",
+      "button[aria-label*='previous' i]",
+      "button[aria-label*='yukarı' i]"
+    ];
+    for (const sel of exactSelectors) {
+      const matches = document.querySelectorAll(sel);
+      for (const el of matches) {
+        if (el.closest(".clip-tiktok-action-wrapper, .clip-portal-capsule, .clip-dm-video-wrapper, .clip-tiktok-arrow-nav-btn")) continue;
+        const r = el.getBoundingClientRect();
+        // Strict boundary: must be right of center (40% - 92% of viewport width) and in middle vertical zone
+        if (r.left > window.innerWidth * 0.40 && r.left < window.innerWidth * 0.92 &&
+            r.top > 80 && r.bottom < window.innerHeight - 60) {
+          return el;
+        }
+      }
     }
+
+    // 2. Geometry Search: Find circular/pill navigation buttons in the right zone of the video
+    const allButtons = Array.from(document.querySelectorAll("button, [role='button'], div[class*='Arrow'], div[class*='arrow']"));
+    const arrowCandidates = allButtons.filter(el => {
+      // Must not be our own injected element
+      if (el.closest(".clip-tiktok-action-wrapper, .clip-portal-capsule, .clip-dm-video-wrapper, .clip-tiktok-arrow-nav-btn")) return false;
+
+      const r = el.getBoundingClientRect();
+      // Must be between 40% and 92% of viewport width (right of the video)
+      if (r.left < window.innerWidth * 0.40 || r.left > window.innerWidth * 0.92) return false;
+      // Must be in middle vertical zone
+      if (r.top < 80 || r.bottom > window.innerHeight - 60) return false;
+      // Dimensions: 24px - 68px
+      if (r.width < 24 || r.width > 68 || r.height < 24 || r.height > 68) return false;
+
+      // Must contain an SVG icon
+      if (!el.querySelector("svg")) return false;
+
+      // Must have NO visible text (rules out comments, counts, usernames)
+      const text = el.textContent.trim();
+      if (text.length > 0 && !/^[\s\n]*$/.test(text)) return false;
+
+      // Strictly ignore close, more, or search buttons
+      const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+      const e2e = (el.getAttribute("data-e2e") || "").toLowerCase();
+      if (aria.includes("close") || aria.includes("kapat") || aria.includes("more") || aria.includes("daha")) return false;
+      if (e2e.includes("close") || e2e.includes("more")) return false;
+
+      return true;
+    });
+
+    if (arrowCandidates.length === 0) return null;
+
+    // If both up and down arrows are present, the UP arrow is physically the topmost one (smaller top)
+    arrowCandidates.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+    return arrowCandidates[0];
+  }
+
+  /**
+   * 2b. TikTok Video Detail / Modal / DM Open Video Adapter
+   * Covers: /video/ URL, VideoDetail DOM, AND videos opened from DM (/messages).
+   * Strictly places ONE button directly ABOVE the UP arrow (^) on screen.
+   * Completely purges ANY stray button at the top-left or near close buttons!
+   */
+  function handleTikTokModal() {
+    if (!window.location.hostname.includes("tiktok.com")) return;
+
+    // 1. ALWAYS PURGE ANY BUTTON AT TOP-LEFT OR FLOATING ROGUE (Sol üst temizliği)
+    document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-dm-video-wrapper, .clip-tiktok-arrow-nav-btn").forEach(el => {
+      const r = el.getBoundingClientRect();
+      // Remove any button in top-left quadrant (< 38% of screen width or < 110px from top)
+      if (r.left < window.innerWidth * 0.38 || r.top < 110) {
+        el.remove();
+      }
+    });
+
+    // 2. Find the UP arrow button on the right side of the video
+    const upArrow = findTikTokModalUpArrow();
+    if (!upArrow) return;
+
+    const arrowRect = upArrow.getBoundingClientRect();
+    const existingModalBtn = document.querySelector(".clip-tiktok-arrow-nav-btn");
+
+    if (existingModalBtn) {
+      const btnRect = existingModalBtn.getBoundingClientRect();
+      // Verify it's within 30px horizontally and directly above the upArrow
+      if (Math.abs(btnRect.left - arrowRect.left) < 30 && btnRect.top < arrowRect.top && (arrowRect.top - btnRect.bottom) <= 30 && (arrowRect.top - btnRect.bottom) >= -5) {
+        // Enforce strict single button
+        document.querySelectorAll(".clip-tiktok-arrow-nav-btn").forEach(el => {
+          if (el !== existingModalBtn) el.remove();
+        });
+        return;
+      }
+      // If it's displaced or in the wrong place, remove it to re-align
+      existingModalBtn.remove();
+    }
+
+    // Purge any extra modal buttons
+    document.querySelectorAll(".clip-tiktok-arrow-nav-btn").forEach(el => el.remove());
+
+    const btnWrapper = document.createElement("div");
+    btnWrapper.className = "clip-tiktok-action-wrapper clip-tiktok-arrow-nav-btn";
+    if (!isCompanionActive) btnWrapper.classList.add("clip-paused");
+    btnWrapper.title = isCompanionActive 
+      ? "CLIP — TikTok'u Panoya Kopyala (WhatsApp / Discord)" 
+      : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
+    btnWrapper.innerHTML = `
+      <div class="clip-tiktok-action-circle" title="Panoya Kopyala" style="width: 40px !important; height: 40px !important;">
+        ${ICONS.scissors}
+      </div>
+    `;
+
+    btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation(), { capture: true });
+    btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation(), { capture: true });
+    btnWrapper.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const curVideo = getActiveTikTokVideoElement() || document.querySelector("video");
+      const exactUrl = findTikTokVideoUrl(upArrow.closest("article, section, main") || document.body);
+      console.log("⚡ [CLIP] TikTok Arrow Nav captured URL:", exactUrl);
+      triggerCapture(btnWrapper, curVideo, "tiktok", exactUrl);
+    }, { capture: true });
+
+    // Try DOM flow insertion if arrowParent is a narrow vertical navigation strip
+    const arrowParent = upArrow.parentElement;
+    let placedInFlow = false;
+    if (arrowParent && arrowParent.childElementCount <= 4) {
+      const pRect = arrowParent.getBoundingClientRect();
+      if (pRect.width < 120) {
+        arrowParent.style.display = "flex";
+        arrowParent.style.flexDirection = "column";
+        arrowParent.style.alignItems = "center";
+        upArrow.insertAdjacentElement("beforebegin", btnWrapper);
+        const bRect = btnWrapper.getBoundingClientRect();
+        if (Math.abs(bRect.left - arrowRect.left) < 25 && bRect.top < arrowRect.top) {
+          placedInFlow = true;
+        }
+      }
+    }
+
+    // If not placed cleanly in flow, use direct fixed positioning centered above upArrow
+    if (!placedInFlow) {
+      btnWrapper.style.position = "fixed";
+      btnWrapper.style.left = `${arrowRect.left + (arrowRect.width - 40) / 2}px`;
+      btnWrapper.style.top = `${arrowRect.top - 48}px`;
+      btnWrapper.style.zIndex = "2147483647";
+      btnWrapper.style.margin = "0";
+      if (!btnWrapper.parentElement) {
+        document.body.appendChild(btnWrapper);
+      }
+    }
+
+    // Strictly enforce single modal button
+    document.querySelectorAll(".clip-tiktok-arrow-nav-btn").forEach(el => {
+      if (el !== btnWrapper) el.remove();
+    });
+  }
+
+  /**
+   * 2c. TikTok DM / Messages Video Adapter
+   * When a video is opened in TikTok DMs, it uses the exact same modal/theater player as /video/ detail pages.
+   * Delegates directly to handleTikTokModal() so the button sits above the UP arrow (^) on the right, never at top-left.
+   */
+  function handleTikTokDMVideo() {
+    handleTikTokModal();
   }
 
   /**
@@ -406,17 +589,33 @@
         <div class="clip-action-circle" title="Panoya Kopyala">${ICONS.scissors}</div>
       `;
 
-      btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
-      btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
+      btnWrapper.addEventListener("pointerdown", (e) => { e.stopPropagation(); e.stopImmediatePropagation(); }, { capture: true });
+      btnWrapper.addEventListener("mousedown", (e) => { e.stopPropagation(); e.stopImmediatePropagation(); }, { capture: true });
+      btnWrapper.addEventListener("touchstart", (e) => { e.stopPropagation(); e.stopImmediatePropagation(); }, { capture: true });
+
+      let lastInstaTrigger = 0;
       btnWrapper.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        const now = Date.now();
+        if (now - lastInstaTrigger < 800) return;
+        lastInstaTrigger = now;
+
+        // Keep video playing — Instagram's click handler may pause it
+        const wasPlaying = !videoEl.paused;
+        if (wasPlaying) {
+          for (const delay of [0, 20, 60, 150]) {
+            setTimeout(() => { if (videoEl && videoEl.paused) videoEl.play().catch(() => {}); }, delay);
+          }
+        }
 
         const exactUrl = findInstagramVideoUrl(likeBtn, videoEl, postCard);
         console.log("⚡ [CLIP] Instagram resolved URL:", exactUrl);
 
         triggerCapture(btnWrapper, videoEl, "instagram", exactUrl);
-      });
+      }, { capture: true });
 
       // Insert directly ABOVE the Like button
       targetUnit.insertAdjacentElement("beforebegin", btnWrapper);
@@ -424,15 +623,76 @@
   }
 
   /**
-   * 4. X / Twitter Adapter (Clean #350842 Pill Button matching native tweet toolbar)
+   * Helper: Find Grok button / logo in tweet (whether at top-right header or in action group)
+   */
+  function findGrokElement(tweet) {
+    if (!tweet) return null;
+
+    // 1. Direct attribute match (Grok / Explain / Açıkla)
+    const direct = tweet.querySelector(
+      "[data-testid*='grok' i], " +
+      "[data-testid*='Grok' i], " +
+      "button[aria-label*='grok' i], " +
+      "button[aria-label*='açıkla' i], " +
+      "button[aria-label*='acikla' i], " +
+      "button[aria-label*='explain' i], " +
+      "div[aria-label*='grok' i], " +
+      "div[aria-label*='açıkla' i], " +
+      "div[aria-label*='explain' i], " +
+      "a[href*='/i/grok']"
+    );
+    if (direct) {
+      return direct.closest("button, [role='button']") || direct;
+    }
+
+    // 2. SVG path heuristics for Grok icon
+    const allSvgs = tweet.querySelectorAll("svg");
+    for (const svg of allSvgs) {
+      const html = svg.innerHTML;
+      if (
+        html.includes("8.858") || html.includes("21.402") || 
+        html.includes("9.67") || html.includes("5.08") ||
+        (svg.getAttribute("aria-label") && /grok|açıkla|acikla|explain/i.test(svg.getAttribute("aria-label")))
+      ) {
+        return svg.closest("button, [role='button']") || svg;
+      }
+    }
+
+    // 3. Tweet header button (top right area near username / timestamp)
+    // The top-right header contains Grok and/or Caret. We identify Grok by excluding Caret.
+    const userName = tweet.querySelector("[data-testid='User-Name']");
+    const timeEl = tweet.querySelector("time");
+    const headerRow = userName?.closest("div.css-175oi2r")?.parentElement || timeEl?.closest("div.css-175oi2r")?.parentElement;
+    if (headerRow) {
+      const btns = Array.from(headerRow.querySelectorAll("button, [role='button']"));
+      const grokBtn = btns.find(b => {
+        const testId = b.getAttribute("data-testid") || "";
+        const label = (b.getAttribute("aria-label") || "").toLowerCase();
+        if (testId === "caret" || label.includes("more") || label.includes("daha fazla")) return false;
+        return true;
+      });
+      if (grokBtn) return grokBtn;
+    }
+
+    // 4. Action bar (div[role='group']) search for any Grok button
+    const group = tweet.querySelector("div[role='group']");
+    if (group) {
+      const groupGrok = group.querySelector("[data-testid*='grok' i], [aria-label*='grok' i], [aria-label*='açıkla' i], [aria-label*='explain' i]");
+      if (groupGrok) return groupGrok.closest("button, [role='button']") || groupGrok;
+    }
+
+    return null;
+  }
+
+  /**
+   * 4. X / Twitter Adapter (Clean #350842 Pill Button placed directly to the LEFT of Grok logo)
    */
   function handleTwitter() {
     if (!window.location.hostname.includes("x.com") && !window.location.hostname.includes("twitter.com")) return;
 
-    const actionGroups = document.querySelectorAll("div[role='group']");
-    actionGroups.forEach(group => {
-      const tweet = group.closest("article");
-      if (!tweet || group.querySelector(".clip-x-action-wrapper")) return;
+    const tweets = document.querySelectorAll("article[data-testid='tweet'], article[role='article'], article");
+    tweets.forEach(tweet => {
+      if (tweet.querySelector(".clip-x-action-wrapper")) return;
 
       // Only add to tweets with video!
       const videoEl = tweet.querySelector("video");
@@ -440,10 +700,12 @@
 
       const btnWrapper = document.createElement("div");
       btnWrapper.className = "clip-x-action-wrapper";
-      btnWrapper.title = "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)";
+      if (!isCompanionActive) btnWrapper.classList.add("clip-paused");
+      btnWrapper.title = isCompanionActive
+        ? "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)"
+        : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
       btnWrapper.innerHTML = `
         <div class="clip-x-action-circle" title="Panoya Kopyala">
-          <span style="display:inline-flex; align-items:center;">${ICONS.scissors}</span>
           <span>Klip</span>
         </div>
       `;
@@ -464,17 +726,31 @@
         triggerCapture(btnWrapper, video, "x", exactUrl);
       });
 
-      // Insert cleanly right before the Bookmark or Share button, or before the last item in the group
-      const shareOrBookmark = group.querySelector(
-        "[data-testid='bookmark'], [data-testid='removeBookmark'], [aria-label*='Share' i], [aria-label*='Paylaş' i], [data-testid='share']"
-      );
-      if (shareOrBookmark) {
-        const itemWrapper = shareOrBookmark.closest("div.css-175oi2r") || shareOrBookmark;
-        itemWrapper.insertAdjacentElement("beforebegin", btnWrapper);
-      } else if (group.lastElementChild) {
-        group.insertBefore(btnWrapper, group.lastElementChild);
-      } else {
-        group.appendChild(btnWrapper);
+      // User request: Move button to the LEFT of the Grok logo
+      const grokEl = findGrokElement(tweet);
+      if (grokEl) {
+        let targetUnit = grokEl.closest("button, [role='button']") || grokEl;
+        if (targetUnit.parentElement && targetUnit.parentElement.childElementCount === 1 && targetUnit.parentElement !== tweet) {
+          targetUnit = targetUnit.parentElement;
+        }
+        targetUnit.insertAdjacentElement("beforebegin", btnWrapper);
+        return;
+      }
+
+      // Fallback: If no Grok logo found, place in action toolbar before Bookmark or Share
+      const group = tweet.querySelector("div[role='group']");
+      if (group) {
+        const shareOrBookmark = group.querySelector(
+          "[data-testid='bookmark'], [data-testid='removeBookmark'], [aria-label*='Share' i], [aria-label*='Paylaş' i], [data-testid='share']"
+        );
+        if (shareOrBookmark) {
+          const itemWrapper = shareOrBookmark.closest("div.css-175oi2r") || shareOrBookmark;
+          itemWrapper.insertAdjacentElement("beforebegin", btnWrapper);
+        } else if (group.lastElementChild) {
+          group.insertBefore(btnWrapper, group.lastElementChild);
+        } else {
+          group.appendChild(btnWrapper);
+        }
       }
     });
   }
@@ -994,6 +1270,297 @@
 
 
   /**
+   * Helper: Scan performance resource timing for direct Instagram/Facebook CDN video stream
+   */
+  function findInstagramCdnStream() {
+    try {
+      const entries = performance.getEntriesByType("resource");
+      for (let i = entries.length - 1; i >= 0; i--) {
+        const name = entries[i].name || "";
+        if (!name.startsWith("http")) continue;
+        const low = name.toLowerCase();
+
+        // Must be Instagram / Facebook video CDN
+        const isCdn = low.includes("cdninstagram.com") || low.includes("fbcdn.net");
+        if (!isCdn) continue;
+
+        // Strictly reject audio streams, static images and scripts
+        if (low.includes("audio") || low.includes("dash_ln_heaac") || low.includes(".m4a")) continue;
+        if (low.includes(".jpg") || low.includes(".jpeg") || low.includes(".png") || low.includes(".webp") || low.includes(".js") || low.includes(".css")) continue;
+
+        // Video signatures
+        if (low.includes(".mp4") || low.includes("/v/t50") || low.includes("/v/t64") || low.includes("/v/t2") || low.includes("bytestart=") || low.includes("mime_type=video_mp4") || low.includes("efg=")) {
+          return name
+            .replace(/[?&]bytestart=\d+/gi, "")
+            .replace(/[?&]byteend=\d+/gi, "")
+            .replace(/\?&/g, "?")
+            .replace(/&&+/g, "&")
+            .replace(/[?&]$/, "");
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  /**
+   * Safe recursive property finder for React Fiber without throwing on circular structures
+   */
+  function safeExtractInstagramUrl(obj, depth = 0, seen = new WeakSet()) {
+    if (!obj || depth > 5 || typeof obj !== "object") return null;
+    if (seen.has(obj)) return null;
+    seen.add(obj);
+
+    if (typeof obj.playable_url === "string" && obj.playable_url.startsWith("http")) return obj.playable_url;
+    if (typeof obj.playableUrl === "string" && obj.playableUrl.startsWith("http")) return obj.playableUrl;
+    if (typeof obj.video_url === "string" && obj.video_url.startsWith("http")) return obj.video_url;
+    if (typeof obj.videoUrl === "string" && obj.videoUrl.startsWith("http")) return obj.videoUrl;
+    if (typeof obj.code === "string" && /^[A-Za-z0-9_-]{9,15}$/.test(obj.code)) {
+      return `https://www.instagram.com/reel/${obj.code}/`;
+    }
+
+    if (Array.isArray(obj.video_versions) && obj.video_versions.length > 0) {
+      const best = obj.video_versions[0];
+      if (best && typeof best.url === "string") return best.url;
+    }
+
+    for (const key of Object.keys(obj)) {
+      if (key === "_owner" || key === "stateNode" || key === "return" || key === "child" || key === "sibling") continue;
+      const val = obj[key];
+      if (typeof val === "string") {
+        if ((val.includes("cdninstagram.com") || val.includes("fbcdn.net")) && (val.includes(".mp4") || val.includes("/v/t50"))) {
+          return val;
+        }
+        const m = val.match(/"code":"([A-Za-z0-9_-]{9,15})"/);
+        if (m) return `https://www.instagram.com/reel/${m[1]}/`;
+      } else if (typeof val === "object" && val !== null) {
+        const found = safeExtractInstagramUrl(val, depth + 1, seen);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Helper: Resolve Instagram URL from DM message, card or player
+   */
+  function findInstagramDirectUrl(videoEl) {
+    if (!videoEl) return window.location.href;
+
+    // 1. Direct CDN stream from performance resource timing
+    const cdnStream = findInstagramCdnStream();
+    if (cdnStream) return cdnStream;
+
+    // 2. Direct video source if progressive http
+    if (videoEl.currentSrc && videoEl.currentSrc.startsWith("http") && !videoEl.currentSrc.startsWith("blob:")) {
+      return videoEl.currentSrc;
+    }
+    if (videoEl.src && videoEl.src.startsWith("http") && !videoEl.src.startsWith("blob:")) {
+      return videoEl.src;
+    }
+
+    // 3. Check parent message hierarchy for Reel / Post links
+    let cur = videoEl;
+    for (let i = 0; i < 12 && cur && cur !== document.body; i++) {
+      const anchors = cur.querySelectorAll("a[href*='/reel/'], a[href*='/p/'], a[href*='/reels/']");
+      for (const a of anchors) {
+        const h = a.getAttribute("href") || a.href || "";
+        const m = h.match(/\/(?:reel|reels|p)\/([A-Za-z0-9_-]{9,15})/);
+        if (m && m[1] && m[1] !== "reels") {
+          return `https://www.instagram.com/reel/${m[1]}/`;
+        }
+      }
+      cur = cur.parentElement;
+    }
+
+    // 4. React Fiber inspection
+    try {
+      cur = videoEl;
+      for (let i = 0; i < 10 && cur && cur !== document.body; i++) {
+        const fiberKey = Object.keys(cur).find(k => k.startsWith("__reactFiber$") || k.startsWith("__reactProps$"));
+        if (fiberKey && cur[fiberKey]) {
+          let fiber = cur[fiberKey];
+          for (let f = 0; f < 8 && fiber; f++) {
+            const props = fiber.memoizedProps || fiber.props;
+            if (props) {
+              const res = safeExtractInstagramUrl(props);
+              if (res) return res;
+            }
+            fiber = fiber.return;
+          }
+        }
+        cur = cur.parentElement;
+      }
+    } catch (e) {}
+
+    // 5. Check if inside dialog / modal
+    const dialog = videoEl.closest("div[role='dialog']");
+    if (dialog) {
+      const anchors = dialog.querySelectorAll("a[href*='/reel/'], a[href*='/p/']");
+      for (const a of anchors) {
+        const h = a.getAttribute("href") || a.href || "";
+        const m = h.match(/\/(?:reel|reels|p)\/([A-Za-z0-9_-]{9,15})/);
+        if (m && m[1]) return `https://www.instagram.com/reel/${m[1]}/`;
+      }
+    }
+
+    // 6. Check window pathname
+    const m = window.location.pathname.match(/\/(?:reel|reels|p)\/([A-Za-z0-9_-]{9,15})/);
+    if (m && m[1] && m[1] !== "reels") {
+      return `https://www.instagram.com/reel/${m[1]}/`;
+    }
+
+    return window.location.href;
+  }
+
+  /**
+   * Adapter for Instagram DM / Direct Messages format
+   * Injects sleek floating CLIP button onto video messages and shared Reel cards in DMs
+   */
+  function handleInstagramDM() {
+    if (!window.location.hostname.includes("instagram.com")) return;
+
+    // A. Handle <video> elements in DMs or non-feed views
+    const allVideos = document.querySelectorAll("video");
+    allVideos.forEach(videoEl => {
+      // If already handled by Reels/Feed adapter with like button, skip
+      const feedPost = videoEl.closest("article, [data-blade-container]");
+      if (feedPost && feedPost.querySelector(".clip-reels-action-wrapper")) return;
+
+      const rect = videoEl.getBoundingClientRect();
+      if (rect.width < 40 || rect.height < 40) return;
+
+      // Locate outermost video container / message bubble
+      let container = videoEl.parentElement;
+      while (container && container.parentElement && container.parentElement !== document.body) {
+        const pr = container.parentElement.getBoundingClientRect();
+        if (Math.abs(pr.width - rect.width) < 25 && Math.abs(pr.height - rect.height) < 25) {
+          container = container.parentElement;
+        } else {
+          break;
+        }
+      }
+      if (!container || container === document.body) container = videoEl.parentElement;
+      if (!container) return;
+
+      if (container.querySelector(":scope > .clip-dm-video-wrapper")) {
+        return;
+      }
+
+      const compPos = window.getComputedStyle(container).position;
+      if (compPos === "static") {
+        container.style.position = "relative";
+      }
+
+      const btnWrapper = document.createElement("div");
+      btnWrapper.className = "clip-dm-video-wrapper";
+      btnWrapper.title = "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)";
+      btnWrapper.innerHTML = `
+        <div class="clip-dm-action-circle" title="Panoya Kopyala">
+          ${ICONS.scissors}
+        </div>
+      `;
+
+      // Absolute suppression of pointer / mouse down events in capture phase to prevent Instagram from pausing
+      const stopEarly = (e) => {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      };
+      btnWrapper.addEventListener("pointerdown", stopEarly, { capture: true });
+      btnWrapper.addEventListener("mousedown", stopEarly, { capture: true });
+      btnWrapper.addEventListener("touchstart", stopEarly, { capture: true });
+
+      let lastTriggerTime = 0;
+      const doTrigger = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        }
+
+        const now = Date.now();
+        if (now - lastTriggerTime < 800) return;
+        lastTriggerTime = now;
+
+        // Preserve playback state: ensure video doesn't get paused by Instagram click handlers
+        const wasPlaying = !videoEl.paused;
+        if (wasPlaying) {
+          for (const delay of [0, 15, 50, 150, 300]) {
+            setTimeout(() => {
+              if (videoEl && videoEl.paused) videoEl.play().catch(() => {});
+            }, delay);
+          }
+        }
+
+        const exactUrl = findInstagramDirectUrl(videoEl);
+        console.log("⚡ [CLIP] Instagram DM video resolved URL:", exactUrl);
+
+        triggerCapture(btnWrapper, videoEl, "instagram", exactUrl);
+      };
+
+      btnWrapper.addEventListener("click", doTrigger, { capture: true });
+      btnWrapper.addEventListener("pointerup", doTrigger, { capture: true });
+      btnWrapper.addEventListener("touchend", doTrigger, { capture: true });
+
+      container.appendChild(btnWrapper);
+    });
+
+    // B. Handle shared Reel preview cards in DMs before video is initiated
+    if (window.location.pathname.includes("/direct/")) {
+      const dmCards = document.querySelectorAll("a[href*='/reel/'], a[href*='/p/']");
+      dmCards.forEach(cardAnchor => {
+        if (cardAnchor.querySelector("video") || cardAnchor.querySelector(".clip-dm-video-wrapper")) return;
+        const rect = cardAnchor.getBoundingClientRect();
+        if (rect.width < 60 || rect.height < 60) return;
+
+        const compPos = window.getComputedStyle(cardAnchor).position;
+        if (compPos === "static") {
+          cardAnchor.style.position = "relative";
+        }
+
+        const btnWrapper = document.createElement("div");
+        btnWrapper.className = "clip-dm-video-wrapper";
+        btnWrapper.title = "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)";
+        btnWrapper.innerHTML = `
+          <div class="clip-dm-action-circle" title="Panoya Kopyala">
+            ${ICONS.scissors}
+          </div>
+        `;
+
+        const stopEarly = (e) => {
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        };
+        btnWrapper.addEventListener("pointerdown", stopEarly, { capture: true });
+        btnWrapper.addEventListener("mousedown", stopEarly, { capture: true });
+        btnWrapper.addEventListener("touchstart", stopEarly, { capture: true });
+
+        let lastTriggerTime = 0;
+        const onCardAction = (e) => {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+          }
+
+          const now = Date.now();
+          if (now - lastTriggerTime < 800) return;
+          lastTriggerTime = now;
+
+          const exactUrl = cardAnchor.href;
+          console.log("⚡ [CLIP] Instagram DM card resolved URL:", exactUrl);
+          triggerCapture(btnWrapper, null, "instagram", exactUrl);
+        };
+
+        btnWrapper.addEventListener("click", onCardAction, { capture: true });
+        btnWrapper.addEventListener("pointerup", onCardAction, { capture: true });
+        btnWrapper.addEventListener("touchend", onCardAction, { capture: true });
+
+        cardAnchor.appendChild(btnWrapper);
+      });
+    }
+  }
+
+  /**
    * Trigger Video Capture & Windows Clipboard Copy
    */
   async function triggerCapture(targetWrapper, videoEl, platform, exactUrl, startTime, endTime) {
@@ -1008,7 +1575,7 @@
     if (targetWrapper.getAttribute("data-loading") === "true") return;
     targetWrapper.setAttribute("data-loading", "true");
 
-    const circle = targetWrapper.querySelector(".clip-shorts-action-circle, .clip-tiktok-action-circle, .clip-action-circle, .clip-x-action-circle");
+    const circle = targetWrapper.querySelector(".clip-shorts-action-circle, .clip-tiktok-action-circle, .clip-action-circle, .clip-x-action-circle, .clip-dm-action-circle");
     const boltIcon = targetWrapper.querySelector(".clip-ext-icon-bolt");
     const watchIcon = targetWrapper.querySelector(".clip-yt-watch-icon");
 
@@ -1016,8 +1583,20 @@
     if (boltIcon) boltIcon.innerHTML = ICONS.spinner;
     if (watchIcon) watchIcon.innerHTML = ICONS.spinner;
 
-    const targetUrl = exactUrl || window.location.href;
-    const domSrc = videoEl ? (videoEl.currentSrc || videoEl.src) : null;
+    let targetUrl = exactUrl || window.location.href;
+    let domSrc = videoEl ? (videoEl.currentSrc || videoEl.src) : null;
+    if (exactUrl && (exactUrl.includes("cdninstagram.com") || exactUrl.includes("fbcdn.net"))) {
+      domSrc = exactUrl;
+    }
+    if (platform === "instagram") {
+      const cdn = findInstagramCdnStream();
+      if (cdn) {
+        domSrc = cdn;
+        if (!targetUrl || targetUrl.includes("/direct/")) {
+          targetUrl = cdn;
+        }
+      }
+    }
     const title = document.title || "Video";
 
     const safetyTimeout = setTimeout(() => {
@@ -1043,7 +1622,7 @@
           targetWrapper.removeAttribute("data-loading");
 
           if (chrome.runtime.lastError || !response || !response.success) {
-            const errText = (response && response.error) ? response.error : (chrome.runtime.lastError ? chrome.runtime.lastError.message : "Video yakalanamadı. 'start_clip.bat' servisini kontrol edin.");
+            const errText = (response && response.error) ? response.error : (chrome.runtime.lastError ? chrome.runtime.lastError.message : "Video yakalanamadı. Lütfen sayfayı yenileyip tekrar deneyin.");
             showDynamicIslandMessage(`⚠️ ${errText}`);
             resetButtonState(targetWrapper);
             return;
@@ -1056,10 +1635,15 @@
           // Helper servisi çalışıyorsa doğrudan sistem panosuna (Ctrl+V / Cmd+V) kopyalandı
           const clipboardReady = !!response.clipboardCopied;
 
-          if (!clipboardReady) {
-            showDynamicIslandMessage("⚠️ CLIP masaüstü servisi açık değil. Panoya kopyalamak için CLIP'i başlatın.");
-            resetButtonState(targetWrapper);
-            return;
+          // Masaüstü servisi açık değilse otomatik doğrudan tarayıcı indirmesini tetikle
+          if (!clipboardReady && response.videoUrl) {
+            try {
+              chrome.runtime.sendMessage({
+                action: "TRIGGER_DOWNLOAD",
+                videoUrl: response.videoUrl,
+                platform: platform
+              });
+            } catch (_) {}
           }
 
           // Drag & drop için blob'u yükle (sadece küçük/erişilebilir URL'ler için)
@@ -1075,25 +1659,26 @@
           }
 
           renderDynamicIsland(targetWrapper, response.videoUrl, platform, response.filename, response.filePath, preloadedFile, clipboardReady);
+          setTimeout(() => resetButtonState(targetWrapper), 3000);
         }
       );
     } catch (err) {
       clearTimeout(safetyTimeout);
       targetWrapper.removeAttribute("data-loading");
       resetButtonState(targetWrapper);
-      showDynamicIslandMessage("⚠️ Eklenti güncellendi. Sayfayı yenileyip (Ctrl+F5) tekrar deneyin.");
+      showDynamicIslandMessage("⚠️ Eklenti güncellendi. Sayfayı yenileyip tekrar deneyin.");
     }
   }
 
   function resetButtonState(targetWrapper) {
     if (!targetWrapper) return;
-    const circle = targetWrapper.querySelector(".clip-shorts-action-circle, .clip-tiktok-action-circle, .clip-action-circle, .clip-x-action-circle");
+    const circle = targetWrapper.querySelector(".clip-shorts-action-circle, .clip-tiktok-action-circle, .clip-action-circle, .clip-x-action-circle, .clip-dm-action-circle");
     const boltIcon = targetWrapper.querySelector(".clip-ext-icon-bolt");
     const watchIcon = targetWrapper.querySelector(".clip-yt-watch-icon");
 
-    if (circle) circle.innerHTML = ICONS.bolt;
-    if (boltIcon) boltIcon.innerHTML = ICONS.bolt;
-    if (watchIcon) watchIcon.innerHTML = ICONS.bolt;
+    if (circle) circle.innerHTML = ICONS.scissors;
+    if (boltIcon) boltIcon.innerHTML = ICONS.scissors;
+    if (watchIcon) watchIcon.innerHTML = ICONS.scissors;
   }
 
   /**
@@ -1295,11 +1880,18 @@
 
   function scanAll() {
     if (isUserScrolling) return;
-    handleTikTok();
-    handleInstagram();
-    handleTwitter();
-    handleYouTubeShorts();
-    handleYouTubeWatch();
+
+    // TikTok: run feed and modal adapters cleanly
+    if (window.location.hostname.includes("tiktok.com")) {
+      try { handleTikTokFeed(); } catch (e) { console.warn("[CLIP] TikTok Feed err:", e); }
+      try { handleTikTokModal(); } catch (e) { console.warn("[CLIP] TikTok Modal err:", e); }
+    }
+
+    try { handleInstagram(); } catch (e) { console.warn("[CLIP] Instagram err:", e); }
+    try { handleTwitter(); } catch (e) { console.warn("[CLIP] Twitter err:", e); }
+    try { handleYouTubeShorts(); } catch (e) { console.warn("[CLIP] YouTube Shorts err:", e); }
+    try { handleYouTubeWatch(); } catch (e) { console.warn("[CLIP] YouTube Watch err:", e); }
+    try { handleInstagramDM(); } catch (e) { console.warn("[CLIP] Instagram DM err:", e); }
   }
 
   // Initial delayed scan
@@ -1311,7 +1903,6 @@
   }, 1500);
 
   // Sync state with System Tray Companion (active vs paused/colorless)
-  let isCompanionActive = true;
   async function syncCompanionState() {
     try {
       const res = await fetch("http://127.0.0.1:48123/health", { signal: AbortSignal.timeout(450) });
@@ -1320,7 +1911,7 @@
         const active = data.active !== false;
         if (isCompanionActive !== active) {
           isCompanionActive = active;
-          document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-reels-action-wrapper, .clip-shorts-action-wrapper, .clip-x-action-wrapper, .clip-yt-watch-btn").forEach(el => {
+          document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-reels-action-wrapper, .clip-shorts-action-wrapper, .clip-x-action-wrapper, .clip-yt-watch-btn, .clip-dm-video-wrapper").forEach(el => {
             el.classList.toggle("clip-paused", !isCompanionActive);
             el.title = isCompanionActive 
               ? "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)" 
@@ -1350,7 +1941,7 @@
   // SPA Navigation hooks (TikTok search -> video modal -> feed)
   const cleanTikTokButtons = () => {
     if (window.location.hostname.includes("tiktok.com")) {
-      document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-arrow-nav-btn, .clip-tiktok-overlay-btn, .clip-tiktok-fixed-btn").forEach(el => el.remove());
+      document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-tiktok-arrow-nav-btn, .clip-tiktok-overlay-btn, .clip-tiktok-fixed-btn, .clip-dm-video-wrapper").forEach(el => el.remove());
     }
   };
 

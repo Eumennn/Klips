@@ -725,6 +725,21 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
         if res:
             return res
 
+    # 1b. Instagram DM direct stream support:
+    # In Instagram DM (/direct/) or when clean_url is a direct video/CDN stream
+    has_ig_shortcode = bool(re.search(r'instagram\.com/(?:reel|reels|p|tv)/([A-Za-z0-9_-]{9,15})', clean_url))
+    if any(k in clean_url.lower() for k in ["cdninstagram.com", "fbcdn.net"]) and is_valid_progressive_video_url(clean_url):
+        print("⚡ [CLIP] Instagram direct CDN URL detected, downloading directly...")
+        res = download_direct_stream(clean_url, "instagram_dm")
+        if res:
+            return res
+
+    if is_instagram and not has_time_range and dom_src and is_valid_progressive_video_url(dom_src):
+        print("⚡ [CLIP] Instagram progressive CDN stream detected, downloading directly...")
+        res = download_direct_stream(dom_src, "instagram")
+        if res:
+            return res
+
     # 2. TikTok specific optimizations: try TikWM first for watermark-free MP4
     if "tiktok.com" in clean_url and not has_time_range:
         if "/video/" in clean_url:
@@ -736,10 +751,10 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
     has_ig_shortcode = bool(re.search(r'instagram\.com/(?:reel|reels|p|tv)/([A-Za-z0-9_-]{9,15})', clean_url))
     has_yt_id = bool(re.search(r'(?:shorts/|v=|youtu\.be/)([a-zA-Z0-9_-]{11})', clean_url))
     is_generic_feed = (
-        ("tiktok.com" in clean_url and not "/video/" in clean_url) or
-        ("instagram.com" in clean_url and not has_ig_shortcode) or
+        ("tiktok.com" in clean_url and not "/video/" in clean_url and not "/messages" in clean_url and (not dom_src or not is_valid_progressive_video_url(dom_src))) or
+        ("instagram.com" in clean_url and not has_ig_shortcode and not "/direct/" in clean_url and (not dom_src or not is_valid_progressive_video_url(dom_src))) or
         (("youtube.com" in clean_url or "youtu.be" in clean_url) and not has_yt_id) or
-        (clean_url.rstrip("/").endswith("tiktok.com") or clean_url.rstrip("/").endswith("instagram.com") or clean_url.rstrip("/").endswith("youtube.com"))
+        ((clean_url.rstrip("/").endswith("tiktok.com") or clean_url.rstrip("/").endswith("instagram.com") or clean_url.rstrip("/").endswith("youtube.com")) and (not dom_src or not is_valid_progressive_video_url(dom_src)))
     )
     if is_generic_feed and (not dom_src or dom_src.startswith("blob:")):
         return {"error": "feed_url", "message": "Video akışı tespit edilemedi. Lütfen videodaki CLIP butonuna tekrar basın."}
@@ -804,6 +819,20 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
             tikwm_res = download_tiktok_tikwm(clean_url)
             if tikwm_res:
                 return tikwm_res
+
+        # Fallback for Instagram (e.g. DM / private reel): try direct stream if available
+        if is_instagram and dom_src and is_valid_progressive_video_url(dom_src):
+            print("⚡ [CLIP] yt-dlp failed on Instagram, attempting direct stream fallback...")
+            direct_res = download_direct_stream(dom_src, "instagram_dm")
+            if direct_res:
+                return direct_res
+
+        # Fallback for TikTok DM direct stream if yt-dlp and TikWM fail
+        if "tiktok.com" in clean_url and dom_src and is_valid_progressive_video_url(dom_src):
+            print("⚡ [CLIP] TikTok direct stream fallback...")
+            direct_res = download_direct_stream(dom_src, "tiktok_dm")
+            if direct_res:
+                return direct_res
 
     # Search strictly for files created in CLIP_DIR during this specific request
     new_files = [

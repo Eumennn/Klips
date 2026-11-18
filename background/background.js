@@ -78,7 +78,8 @@ if (chrome.webRequest && chrome.webRequest.onBeforeRequest) {
           // STRICT FILTER: reject audio-only streams and segments
           const isAudio = url.includes("audio") || url.includes("dash_ln_heaac") || url.includes(".m4a");
           const isSegment = url.includes(".m4s") || url.includes(".mpd") || url.includes(".m3u8");
-          if (!isAudio && !isSegment && (url.includes(".mp4") || url.includes("bytestart="))) {
+          const isImage = url.includes(".jpg") || url.includes(".jpeg") || url.includes(".png") || url.includes(".webp");
+          if (!isAudio && !isSegment && !isImage && (url.includes(".mp4") || url.includes("bytestart=") || url.includes("/v/t50") || url.includes("/v/t64") || url.includes("/v/t2") || url.includes("mime_type=video_mp4"))) {
             const cleanUrl = url
               .replace(/&bytestart=\d+/gi, "")
               .replace(/&byteend=\d+/gi, "")
@@ -175,14 +176,39 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
     // Helper service not reachable, proceed to browser fallbacks
   }
 
+  // Helper: If local companion is running, ensure resolved video stream is copied to OS clipboard
+  async function ensureClipboardCopied(result) {
+    if (!result || !result.success || result.clipboardCopied) return result;
+    if (!result.videoUrl) return result;
+
+    try {
+      const helperUrl = `http://127.0.0.1:48123/clip?url=${encodeURIComponent(result.videoUrl)}&dom_src=${encodeURIComponent(result.videoUrl)}`;
+      const res = await fetch(helperUrl, { signal: AbortSignal.timeout(20000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success) {
+          console.log("⚡ [CLIP] Fallback stream successfully copied to OS clipboard via companion!");
+          return {
+            ...result,
+            filename: data.filename || result.filename,
+            filePath: data.filePath,
+            clipboardCopied: true
+          };
+        }
+      }
+    } catch (_) {}
+
+    return result;
+  }
+
   // 2. Direct DOM video element source (Instagram, TikTok, X)
   if (effectiveDomSrc && effectiveDomSrc.startsWith("http") && !effectiveDomSrc.startsWith("blob:")) {
-    return {
+    return await ensureClipboardCopied({
       success: true,
       videoUrl: effectiveDomSrc,
       platform: platform,
       sourceUrl: cleanUrl
-    };
+    });
   }
 
   // 3. Tab-specific sniffed stream (valid up to 30 seconds)
@@ -190,12 +216,12 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
     const rec = tabMediaStreams.get(tabId);
     if (Date.now() - rec.timestamp < 30000) {
       tabMediaStreams.delete(tabId);
-      return {
+      return await ensureClipboardCopied({
         success: true,
         videoUrl: rec.videoUrl,
         platform: rec.platform,
         sourceUrl: cleanUrl
-      };
+      });
     }
   }
 
@@ -206,12 +232,12 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
       const res = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`);
       const data = await res.json();
       if (data && data.data && data.data.play) {
-        return {
+        return await ensureClipboardCopied({
           success: true,
           videoUrl: data.data.play,
           platform: "tiktok",
           sourceUrl: cleanUrl
-        };
+        });
       }
     } catch (e) {
       console.warn("TikWM failed:", e);
@@ -228,12 +254,12 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
         const videoMatch = vxHtml.match(/<meta content="([^"]+video\.twimg\.com[^"]+)" property="og:video/i) ||
                            vxHtml.match(/<meta content="([^"]+video\.twimg\.com[^"]+)" name="twitter:player:stream/i);
         if (videoMatch && videoMatch[1]) {
-          return {
+          return await ensureClipboardCopied({
             success: true,
             videoUrl: videoMatch[1].replace(/&amp;/g, "&"),
             platform: "x",
             sourceUrl: cleanUrl
-          };
+          });
         }
       }
     } catch (e) {
@@ -243,17 +269,17 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
 
   // 6. Direct MP4 / WebM link
   if (cleanUrl.match(/\.(mp4|webm|mov)(\?.*)?$/i)) {
-    return {
+    return await ensureClipboardCopied({
       success: true,
       videoUrl: cleanUrl,
       platform: "direct",
       sourceUrl: cleanUrl
-    };
+    });
   }
 
   return {
     success: false,
-    error: "Video akışı yakalanamadı. Lütfen 'start_clip.bat' servisini kontrol edin."
+    error: "Video akışı yakalanamadı. Lütfen sayfayı yenileyip tekrar deneyin."
   };
 }
 

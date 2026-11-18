@@ -141,7 +141,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         processingSection.style.display = "none";
 
         if (chrome.runtime.lastError || !response || !response.success) {
-          alert((response && response.error) ? response.error : "Video indirilemedi. Lütfen masaüstü servisinin açık olduğunu kontrol edin.");
+          alert((response && response.error) ? response.error : "Video indirilemedi. Lütfen bağlantıyı veya internetinizi kontrol edin.");
           inputSection.style.display = "flex";
           return;
         }

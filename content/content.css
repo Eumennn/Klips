@@ -75,9 +75,10 @@
 .clip-paused .clip-tiktok-action-circle,
 .clip-paused .clip-action-circle,
 .clip-paused .clip-shorts-action-circle,
-.clip-paused .clip-x-action-circle {
-  filter: grayscale(1) opacity(0.35) !important;
-  color: #94a3b8 !important;
+.clip-paused .clip-x-action-circle,
+.clip-paused .clip-dm-action-circle {
+  filter: grayscale(0.4) opacity(0.85) !important;
+  color: #ffffff !important;
   border: none !important;
   box-shadow: none !important;
 }
@@ -85,54 +86,82 @@
 .clip-paused:hover .clip-tiktok-action-circle,
 .clip-paused:hover .clip-action-circle,
 .clip-paused:hover .clip-shorts-action-circle,
-.clip-paused:hover .clip-x-action-circle {
+.clip-paused:hover .clip-x-action-circle,
+.clip-paused:hover .clip-dm-action-circle {
   transform: none !important;
-  filter: grayscale(1) opacity(0.55) !important;
+  filter: grayscale(0.2) opacity(0.95) !important;
 }
 
 /* TikTok Action Wrapper — Flex Column Alignment (Zero Overlap with Avatar) */
-.clip-tiktok-action-wrapper {
+.clip-tiktok-action-wrapper:not(.clip-tiktok-arrow-nav-btn) {
   position: static !important;
-  margin-bottom: 12px !important;
-  margin-top: 0 !important;
+  margin-bottom: 24px !important;
+  margin-top: 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
 }
 
-/* X / Twitter Action Icon (Clean #350842 Native Pill matching tweet actions) */
+.clip-tiktok-arrow-nav-btn {
+  margin-bottom: 8px !important;
+  margin-top: 0 !important;
+  width: 40px !important;
+  min-height: 40px !important;
+  height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 2147483647 !important;
+}
+
+.clip-tiktok-arrow-nav-btn .clip-tiktok-action-circle {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+}
+
+/* X / Twitter Action Icon (Clean #350842 Native Compact Pill matching tweet header) */
 .clip-x-action-wrapper {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  margin: 0 6px !important;
+  margin: 0 4px !important;
   cursor: pointer !important;
   user-select: none !important;
   vertical-align: middle !important;
   flex-shrink: 0 !important;
+  line-height: 1 !important;
 }
 
 .clip-x-action-circle {
-  height: 28px !important;
-  padding: 0 10px !important;
-  border-radius: 14px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  max-height: 20px !important;
+  padding: 0 8px !important;
+  border-radius: 10px !important;
   background: #350842 !important;
   background-color: #350842 !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 5px !important;
+  gap: 0 !important;
   color: #ffffff !important;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-  font-size: 12px !important;
+  font-size: 11px !important;
   font-weight: 600 !important;
-  box-shadow: 0 2px 8px rgba(53, 8, 66, 0.4) !important;
+  box-shadow: 0 1px 4px rgba(53, 8, 66, 0.4) !important;
   transition: all 0.18s ease !important;
   border: none !important;
+  line-height: 1 !important;
 }
 
 .clip-x-action-wrapper:hover .clip-x-action-circle {
-  transform: translateY(-1px) !important;
+  transform: translateY(-0.5px) !important;
   background: #4d0d60 !important;
   background-color: #4d0d60 !important;
-  box-shadow: 0 4px 14px rgba(53, 8, 66, 0.6) !important;
+  box-shadow: 0 2px 8px rgba(53, 8, 66, 0.6) !important;
   color: #ffffff !important;
 }
 
@@ -142,6 +171,59 @@
   justify-content: center !important;
   color: #a855f7 !important;
   transition: transform 0.2s ease !important;
+}
+
+/* DM & Floating Video Action Buttons (Instagram DM & TikTok DM) */
+.clip-dm-video-wrapper {
+  position: absolute !important;
+  top: 10px !important;
+  right: 10px !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.clip-dm-action-circle {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  border-radius: 50% !important;
+  background: #350842 !important;
+  background-color: #350842 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.75), 0 0 0 1.5px rgba(255, 255, 255, 0.35) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  border: none !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
+
+.clip-dm-video-wrapper:hover .clip-dm-action-circle {
+  transform: scale(1.1) !important;
+  background: #4d0d60 !important;
+  background-color: #4d0d60 !important;
+  box-shadow: 0 6px 20px rgba(53, 8, 66, 0.85), 0 0 0 2px rgba(255, 255, 255, 0.45) !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.clip-dm-video-wrapper svg,
+.clip-dm-action-circle svg,
+.clip-tiktok-action-wrapper svg,
+.clip-tiktok-action-circle svg,
+.clip-reels-action-wrapper svg {
+  pointer-events: none !important;
 }
 
 /* --------------------------------------------------------------------------
