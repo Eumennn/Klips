@@ -250,13 +250,29 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
       const tweetId = cleanUrl.match(/status\/(\d+)/)?.[1];
       if (tweetId) {
         const vxRes = await fetch(`https://api.vxtwitter.com/Twitter/status/${tweetId}`);
-        const vxHtml = await vxRes.text();
-        const videoMatch = vxHtml.match(/<meta content="([^"]+video\.twimg\.com[^"]+)" property="og:video/i) ||
-                           vxHtml.match(/<meta content="([^"]+video\.twimg\.com[^"]+)" name="twitter:player:stream/i);
-        if (videoMatch && videoMatch[1]) {
+        const vxText = await vxRes.text();
+        let directMp4 = null;
+        try {
+          const vxJson = JSON.parse(vxText);
+          if (vxJson.media_extended && vxJson.media_extended.length > 0) {
+            for (const m of vxJson.media_extended) {
+              if (m.type === "video" && m.url && m.url.includes(".mp4")) {
+                directMp4 = m.url;
+                break;
+              }
+            }
+          }
+        } catch (_) {}
+        if (!directMp4) {
+          const matches = vxText.match(/https:\/\/[^"\s\\]+\.mp4(\?[^"\s\\]+)?/gi);
+          if (matches && matches.length > 0) {
+            directMp4 = matches[0];
+          }
+        }
+        if (directMp4) {
           return await ensureClipboardCopied({
             success: true,
-            videoUrl: videoMatch[1].replace(/&amp;/g, "&"),
+            videoUrl: directMp4.replace(/&amp;/g, "&"),
             platform: "x",
             sourceUrl: cleanUrl
           });

@@ -55,32 +55,32 @@ else:
     ctypes = None
     wintypes = None
 
-# Auto-install any missing core dependencies on first launch
+# Auto-install any missing core dependencies on first launch (Windows only; macOS handled by launcher)
 def ensure_core_packages():
-    missing = []
-    try:
-        import yt_dlp
-    except ImportError:
-        missing.append("yt-dlp")
-    try:
-        import imageio_ffmpeg
-    except ImportError:
-        missing.append("imageio-ffmpeg")
-    try:
-        import PIL
-    except ImportError:
-        missing.append("Pillow")
     if IS_WINDOWS:
+        missing = []
+        try:
+            import yt_dlp
+        except ImportError:
+            missing.append("yt-dlp")
+        try:
+            import imageio_ffmpeg
+        except ImportError:
+            missing.append("imageio-ffmpeg")
+        try:
+            import PIL
+        except ImportError:
+            missing.append("Pillow")
         try:
             import pystray
         except ImportError:
             missing.append("pystray")
 
-    if missing:
-        try:
-            subprocess.run([sys.executable, "-m", "pip", "install", *missing, "--quiet", "--no-warn-script-location"], check=False, **_SUBPROCESS_FLAGS)
-        except Exception:
-            pass
+        if missing:
+            try:
+                subprocess.run([sys.executable, "-m", "pip", "install", *missing, "--quiet", "--no-warn-script-location"], check=False, **_SUBPROCESS_FLAGS)
+            except Exception:
+                pass
 
 ensure_core_packages()
 
@@ -699,7 +699,7 @@ def download_twitter_vxtwitter(url):
             data = json.loads(resp.read().decode())
             media = data.get("media_extended") or []
             for item in media:
-                if item.get("type") == "video" and item.get("url"):
+                if item.get("type") == "video" and item.get("url") and ".mp4" in item["url"]:
                     video_url = item["url"]
                     print(f"⚡ [CLIP] vxTwitter API resolved MP4: {video_url[:60]}...")
                     return download_direct_stream(video_url, "twitter")
@@ -743,6 +743,36 @@ def parse_time_sec(val):
         return float(val_str)
     except ValueError:
         return None
+
+def get_ytdlp_cmd():
+    # 1. Local standalone binary in script directory
+    local_ytdlp = os.path.join(current_dir, "yt-dlp")
+    if os.path.exists(local_ytdlp) and os.access(local_ytdlp, os.X_OK):
+        return [local_ytdlp]
+
+    # 2. Python module yt_dlp
+    try:
+        import yt_dlp
+        return [sys.executable, "-m", "yt_dlp"]
+    except ImportError:
+        pass
+
+    # 3. System yt-dlp binary in PATH
+    which_ytdlp = shutil.which("yt-dlp")
+    if which_ytdlp:
+        return [which_ytdlp]
+
+    # 4. Common macOS paths
+    for p in [
+        "/opt/homebrew/bin/yt-dlp",
+        "/usr/local/bin/yt-dlp",
+        os.path.expanduser("~/bin/yt-dlp"),
+        os.path.expanduser("~/.local/bin/yt-dlp")
+    ]:
+        if os.path.exists(p) and os.access(p, os.X_OK):
+            return [p]
+
+    return [sys.executable, "-m", "yt_dlp"]
 
 def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_time=None):
     req_start_ts = time.time()
@@ -803,10 +833,7 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
     # Format: prefer AVC H.264 + AAC 1080p, with fast fallback to 1080p best
     video_format = "bestvideo[vcodec^=avc][height<=1080]+bestaudio[acodec^=mp4a]/bestvideo[height<=1080]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[ext=mp4][height<=1080]/best"
 
-    cmd = [
-        sys.executable,
-        "-m",
-        "yt_dlp",
+    cmd = get_ytdlp_cmd() + [
         "--paths", CLIP_DIR,
         "--paths", f"temp:{CLIP_DIR}",
         "--no-playlist",
@@ -1077,6 +1104,11 @@ def is_port_in_use(port):
 
 def setup_tray(server):
     global TRAY_ICON
+    # On macOS, pystray initializes an AppKit NSApplication run loop that aborts (SIGABRT)
+    # when executed from a detached background daemon (nohup). macOS uses a silent background service.
+    if not IS_WINDOWS:
+        return None
+
     try:
         import pystray
         act_img, inact_img = get_tray_images()
@@ -1218,21 +1250,22 @@ def main():
             pass
 
     tray_started = False
-    try:
-        tray = setup_tray(server)
-        if tray:
-            tray_started = True
-            tray.run(setup=on_tray_ready)
-    except KeyboardInterrupt:
+    if IS_WINDOWS:
         try:
-            server.shutdown()
-        except Exception:
-            pass
-        return
-    except Exception as e:
-        print(f"Tray notice: {e}")
+            tray = setup_tray(server)
+            if tray:
+                tray_started = True
+                tray.run(setup=on_tray_ready)
+        except KeyboardInterrupt:
+            try:
+                server.shutdown()
+            except Exception:
+                pass
+            return
+        except Exception as e:
+            print(f"Tray notice: {e}")
 
-    # Tray aktif değilse veya desteklenmiyorsa HTTP sunucusunun yaşamaya devam etmesini sağla
+    # Tray aktif değilse veya macOS üzerindeyse HTTP sunucusunun yaşamaya devam etmesini sağla
     if not tray_started:
         try:
             server_thread.join()

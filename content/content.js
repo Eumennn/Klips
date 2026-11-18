@@ -1699,8 +1699,8 @@
           // Helper servisi çalışıyorsa doğrudan sistem panosuna (Ctrl+V / Cmd+V) kopyalandı
           const clipboardReady = !!response.clipboardCopied;
 
-          // Masaüstü servisi açık değilse otomatik doğrudan tarayıcı indirmesini tetikle
-          if (!clipboardReady && response.videoUrl) {
+          // Masaüstü servisi açık değilse otomatik doğrudan tarayıcı indirmesini tetikle (yalnızca geçerli MP4 için)
+          if (!clipboardReady && response.videoUrl && !response.videoUrl.includes(".m3u8") && !response.videoUrl.includes(".m4s")) {
             try {
               chrome.runtime.sendMessage({
                 action: "TRIGGER_DOWNLOAD",
