@@ -200,7 +200,7 @@
 
   /**
    * 2. TikTok Adapter (Aligned seamlessly in the right vertical action column above the Like button)
-   * Natural flex-column flow, zero overlap with the profile avatar.
+   * Natural flex-column flow, unified #350842 scissors button design.
    */
   function handleTikTok() {
     if (!window.location.hostname.includes("tiktok.com")) return;
@@ -211,57 +211,40 @@
       "nav .clip-tiktok-action-wrapper, " +
       "form .clip-tiktok-action-wrapper, " +
       "[role='search'] .clip-tiktok-action-wrapper, " +
-      "[data-e2e*='comment'] .clip-tiktok-action-wrapper, " +
-      "[class*='Comment'] .clip-tiktok-action-wrapper, " +
+      "[data-e2e*='comment-box'] .clip-tiktok-action-wrapper, " +
       ".clip-tiktok-fixed-btn"
     ).forEach(el => el.remove());
 
-    const videoEl = getActiveTikTokVideoElement();
-    if (!videoEl) {
-      document.querySelectorAll(".clip-tiktok-action-wrapper").forEach(el => el.remove());
-      return;
-    }
+    const isCommentSection = (el) => el.closest("[data-e2e*='comment-list'], [class*='DivCommentListContainer']");
 
-    // Find the Like button in the right action column
+    // Find the Like/Action buttons in TikTok feed or video player
     const likeButtons = document.querySelectorAll(
-      "[data-e2e='like-icon'], " +
       "[data-e2e='feed-like-icon'], " +
+      "[data-e2e='like-icon'], " +
       "[data-e2e='like-button'], " +
+      "[data-e2e='browse-like-icon'], " +
       "[data-e2e*='like'], " +
       "button[aria-label*='like' i], " +
       "button[aria-label*='beğen' i], " +
-      "div[role='button'][aria-label*='like' i], " +
-      "div[role='button'][aria-label*='beğen' i]"
+      "[data-e2e='feed-comment-icon'], " +
+      "[data-e2e='comment-icon']"
     );
 
-    let injected = false;
     for (const likeBtn of likeButtons) {
-      // Must not be in comments
-      if (likeBtn.closest("[data-e2e*='comment'], [class*='Comment'], [class*='comment']")) continue;
+      if (isCommentSection(likeBtn)) continue;
 
-      // Find unit container for the like button
-      let targetUnit = likeBtn;
-      const parentContainer = likeBtn.closest(
+      // Find unit container for the action button in the column
+      let targetUnit = likeBtn.closest(
+        "[data-e2e*='action-item'], " +
         "[class*='ActionItem'], " +
         "[class*='DivItemContainer'], " +
         "[class*='ItemContainer'], " +
         "[class*='DivActionItem'], " +
-        "[class*='FeedAction'], " +
-        "[data-e2e='browse-action-item'], " +
-        "section"
-      );
+        "[class*='FeedAction']"
+      ) || likeBtn.closest("button, [role='button']")?.parentElement || likeBtn.closest("button, [role='button']") || likeBtn;
 
-      if (parentContainer && likeBtn.parentElement !== parentContainer) {
-        let cur = likeBtn;
-        while (cur && cur.parentElement && cur.parentElement !== parentContainer) {
-          cur = cur.parentElement;
-        }
-        if (cur) targetUnit = cur;
-      }
-
-      if (targetUnit.parentElement && targetUnit.parentElement.querySelector(".clip-tiktok-action-wrapper")) {
-        continue;
-      }
+      if (!targetUnit || !targetUnit.parentElement) continue;
+      if (targetUnit.parentElement.querySelector(".clip-tiktok-action-wrapper")) continue;
 
       const btnWrapper = document.createElement("div");
       btnWrapper.className = "clip-tiktok-action-wrapper";
@@ -269,20 +252,21 @@
       btnWrapper.title = isCompanionActive
         ? "CLIP — TikTok'u Panoya Kopyala (WhatsApp / Discord)"
         : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
-      btnWrapper.innerHTML = `<div class="clip-tiktok-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>`;
+      btnWrapper.innerHTML = `<div class="clip-tiktok-action-circle" title="Panoya Kopyala">${ICONS.scissors}</div>`;
 
       btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
       btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation());
       btnWrapper.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const curVideo = getActiveTikTokVideoElement() || videoEl;
-        const exactUrl = findTikTokVideoUrl(targetUnit.closest("article, [class*='ItemContainer']") || document.body);
+        const card = targetUnit.closest("article, [class*='ItemContainer'], [data-e2e='recommend-list-item-container']") || document.body;
+        const curVideo = card.querySelector("video") || getActiveTikTokVideoElement() || document.querySelector("video");
+        const exactUrl = findTikTokVideoUrl(card);
         console.log("⚡ [CLIP] TikTok captured exact URL:", exactUrl);
         triggerCapture(btnWrapper, curVideo, "tiktok", exactUrl);
       });
 
-      // Insert directly ABOVE the Like button in the action column
+      // Insert directly ABOVE the button in the action column
       targetUnit.insertAdjacentElement("beforebegin", btnWrapper);
     }
   }
@@ -419,7 +403,7 @@
       btnWrapper.className = "clip-reels-action-wrapper";
       btnWrapper.title = "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)";
       btnWrapper.innerHTML = `
-        <div class="clip-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>
+        <div class="clip-action-circle" title="Panoya Kopyala">${ICONS.scissors}</div>
       `;
 
       btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -440,21 +424,28 @@
   }
 
   /**
-   * 4. X / Twitter Adapter
+   * 4. X / Twitter Adapter (Clean #350842 Pill Button matching native tweet toolbar)
    */
   function handleTwitter() {
     if (!window.location.hostname.includes("x.com") && !window.location.hostname.includes("twitter.com")) return;
 
-    const actionGroups = document.querySelectorAll("div[role='group'][id*='id__'], div[role='group']");
+    const actionGroups = document.querySelectorAll("div[role='group']");
     actionGroups.forEach(group => {
       const tweet = group.closest("article");
-      if (!tweet || !tweet.querySelector("video") || group.querySelector(".clip-x-action-wrapper")) return;
+      if (!tweet || group.querySelector(".clip-x-action-wrapper")) return;
+
+      // Only add to tweets with video!
+      const videoEl = tweet.querySelector("video");
+      if (!videoEl) return;
 
       const btnWrapper = document.createElement("div");
       btnWrapper.className = "clip-x-action-wrapper";
-      btnWrapper.title = "CLIP — Videoyu Panoya Kopyala";
+      btnWrapper.title = "CLIP — Videoyu Panoya Kopyala (WhatsApp / Discord)";
       btnWrapper.innerHTML = `
-        <div class="clip-x-action-circle">${ICONS.bolt}</div>
+        <div class="clip-x-action-circle" title="Panoya Kopyala">
+          <span style="display:inline-flex; align-items:center;">${ICONS.scissors}</span>
+          <span>Klip</span>
+        </div>
       `;
 
       btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -463,17 +454,28 @@
         e.preventDefault();
         e.stopPropagation();
 
-        const videoEl = tweet.querySelector("video");
+        const video = tweet.querySelector("video") || videoEl;
         let exactUrl = window.location.href;
         const statusAnchor = tweet.querySelector("a[href*='/status/']");
         if (statusAnchor && statusAnchor.href) {
           exactUrl = statusAnchor.href;
         }
 
-        triggerCapture(btnWrapper, videoEl, "x", exactUrl);
+        triggerCapture(btnWrapper, video, "x", exactUrl);
       });
 
-      group.appendChild(btnWrapper);
+      // Insert cleanly right before the Bookmark or Share button, or before the last item in the group
+      const shareOrBookmark = group.querySelector(
+        "[data-testid='bookmark'], [data-testid='removeBookmark'], [aria-label*='Share' i], [aria-label*='Paylaş' i], [data-testid='share']"
+      );
+      if (shareOrBookmark) {
+        const itemWrapper = shareOrBookmark.closest("div.css-175oi2r") || shareOrBookmark;
+        itemWrapper.insertAdjacentElement("beforebegin", btnWrapper);
+      } else if (group.lastElementChild) {
+        group.insertBefore(btnWrapper, group.lastElementChild);
+      } else {
+        group.appendChild(btnWrapper);
+      }
     });
   }
 
@@ -615,7 +617,7 @@
         ? "CLIP — Shorts'u Panoya Kopyala (WhatsApp / Discord)"
         : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
       btnWrapper.innerHTML = `
-        <div class="clip-shorts-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>
+        <div class="clip-shorts-action-circle" title="Panoya Kopyala">${ICONS.scissors}</div>
       `;
 
       btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -657,7 +659,7 @@
         ? "CLIP — Shorts'u Panoya Kopyala (WhatsApp / Discord)"
         : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
       btnWrapper.innerHTML = `
-        <div class="clip-shorts-action-circle" title="Panoya Kopyala">${ICONS.bolt}</div>
+        <div class="clip-shorts-action-circle" title="Panoya Kopyala">${ICONS.scissors}</div>
       `;
 
       btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation());

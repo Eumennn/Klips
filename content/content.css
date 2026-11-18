@@ -44,26 +44,10 @@
 }
 
 .clip-tiktok-action-circle,
-.clip-action-circle {
-  width: 48px !important;
-  height: 48px !important;
-  border-radius: 50% !important;
-  background: rgba(18, 22, 36, 0.85) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  color: #c084fc !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 12px rgba(99, 102, 241, 0.25) !important;
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  cursor: pointer !important;
-}
-
+.clip-action-circle,
 .clip-shorts-action-circle {
-  width: 48px !important;
-  height: 48px !important;
+  width: 44px !important;
+  height: 44px !important;
   border-radius: 50% !important;
   background: #350842 !important;
   background-color: #350842 !important;
@@ -78,13 +62,7 @@
 }
 
 .clip-tiktok-action-wrapper:hover .clip-tiktok-action-circle,
-.clip-reels-action-wrapper:hover .clip-action-circle {
-  transform: scale(1.12) !important;
-  box-shadow: 0 8px 24px rgba(168, 85, 247, 0.6) !important;
-  border-color: rgba(168, 85, 247, 0.8) !important;
-  color: #ffffff !important;
-}
-
+.clip-reels-action-wrapper:hover .clip-action-circle,
 .clip-shorts-action-wrapper:hover .clip-shorts-action-circle {
   transform: scale(1.1) !important;
   background: #4d0d60 !important;
@@ -100,7 +78,7 @@
 .clip-paused .clip-x-action-circle {
   filter: grayscale(1) opacity(0.35) !important;
   color: #94a3b8 !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
+  border: none !important;
   box-shadow: none !important;
 }
 
@@ -119,33 +97,43 @@
   margin-top: 0 !important;
 }
 
-/* X / Twitter Action Icon */
+/* X / Twitter Action Icon (Clean #350842 Native Pill matching tweet actions) */
 .clip-x-action-wrapper {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  margin-left: 12px !important;
+  margin: 0 6px !important;
   cursor: pointer !important;
+  user-select: none !important;
+  vertical-align: middle !important;
+  flex-shrink: 0 !important;
 }
 
 .clip-x-action-circle {
-  width: 32px !important;
-  height: 32px !important;
-  border-radius: 50% !important;
-  background: rgba(18, 22, 36, 0.75) !important;
-  backdrop-filter: blur(10px) !important;
-  display: flex !important;
+  height: 28px !important;
+  padding: 0 10px !important;
+  border-radius: 14px !important;
+  background: #350842 !important;
+  background-color: #350842 !important;
+  display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  color: #c084fc !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  transition: all 0.2s ease !important;
+  gap: 5px !important;
+  color: #ffffff !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 8px rgba(53, 8, 66, 0.4) !important;
+  transition: all 0.18s ease !important;
+  border: none !important;
 }
 
 .clip-x-action-wrapper:hover .clip-x-action-circle {
-  transform: scale(1.1) !important;
-  color: #fff !important;
-  border-color: rgba(168, 85, 247, 0.6) !important;
+  transform: translateY(-1px) !important;
+  background: #4d0d60 !important;
+  background-color: #4d0d60 !important;
+  box-shadow: 0 4px 14px rgba(53, 8, 66, 0.6) !important;
+  color: #ffffff !important;
 }
 
 .clip-ext-icon-bolt {
