@@ -252,27 +252,22 @@
       const avatar = card.querySelector("a[href*='/@']");
       const avatarRect = avatar ? avatar.getBoundingClientRect() : null;
 
-      // If already injected above avatar, check and clean any rogue buttons below PP
+      // If already injected above avatar, verify position and clean duplicates
       const existingButtons = Array.from(card.querySelectorAll(".clip-tiktok-action-wrapper"));
       if (existingButtons.length > 0) {
-        // Remove ANY button positioned at or below the avatar (PP)
-        if (avatarRect) {
-          existingButtons.forEach(el => {
-            const r = el.getBoundingClientRect();
-            if (r.top >= avatarRect.top - 5) {
-              el.remove();
-            }
-          });
-        }
-        // If there's still a valid button above avatar, keep only the topmost one
-        const remaining = Array.from(card.querySelectorAll(".clip-tiktok-action-wrapper"));
-        if (remaining.length >= 1) {
-          remaining.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
-          for (let i = 1; i < remaining.length; i++) {
-            remaining[i].remove();
+        const keeper = existingButtons[0];
+        if (avatar) {
+          const bRect = keeper.getBoundingClientRect();
+          const aRect = avatar.getBoundingClientRect();
+          if (bRect.bottom >= aRect.top - 16) {
+            const shiftUp = (bRect.bottom - aRect.top) + 20;
+            keeper.style.transform = `translateY(-${shiftUp}px)`;
           }
-          return;
         }
+        for (let i = 1; i < existingButtons.length; i++) {
+          existingButtons[i].remove();
+        }
+        return;
       }
 
       // Purge any rogue buttons in this card before injecting
@@ -296,16 +291,31 @@
         triggerCapture(btnWrapper, video, "tiktok", exactUrl);
       }, { capture: true });
 
-      // Insert as FIRST child of action column = directly ABOVE the avatar!
-      actionCol.insertBefore(btnWrapper, actionCol.firstElementChild);
-
-      // Verify that after insertion, if there's any button below PP, remove it!
-      if (avatarRect) {
-        card.querySelectorAll(".clip-tiktok-action-wrapper").forEach(el => {
-          if (el !== btnWrapper && el.getBoundingClientRect().top >= avatarRect.top - 5) {
-            el.remove();
+      // Determine precise insertion target: find the avatar unit inside the column
+      let insertTarget = actionCol.firstElementChild;
+      if (avatar) {
+        let p = avatar;
+        while (p && p.parentElement && p.parentElement !== card && p.parentElement !== document.body) {
+          if (p.parentElement === actionCol || p.parentElement.contains(card.querySelector("[data-e2e*='like'], button[aria-label*='like' i]"))) {
+            insertTarget = p;
+            actionCol = p.parentElement;
+            break;
           }
-        });
+          p = p.parentElement;
+        }
+      }
+
+      // Insert directly ABOVE the avatar item in the action column!
+      actionCol.insertBefore(btnWrapper, insertTarget);
+
+      // Verify that after insertion, the button is cleanly separated from the avatar with ZERO overlap
+      if (avatar) {
+        const bRect = btnWrapper.getBoundingClientRect();
+        const aRect = avatar.getBoundingClientRect();
+        if (bRect.bottom >= aRect.top - 16) {
+          const shiftUp = (bRect.bottom - aRect.top) + 20;
+          btnWrapper.style.transform = `translateY(-${shiftUp}px)`;
+        }
       }
     });
   }

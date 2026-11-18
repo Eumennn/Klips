@@ -95,11 +95,12 @@
 /* TikTok Action Wrapper — Flex Column Alignment (Zero Overlap with Avatar) */
 .clip-tiktok-action-wrapper:not(.clip-tiktok-arrow-nav-btn) {
   position: static !important;
-  margin-bottom: 24px !important;
-  margin-top: 8px !important;
+  margin-bottom: 28px !important;
+  margin-top: 6px !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
+  justify-content: center !important;
   flex-shrink: 0 !important;
 }
 
