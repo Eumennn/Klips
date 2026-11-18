@@ -204,7 +204,7 @@
   /**
    * 2a. TikTok Feed Adapter (For Home/ForYou/User Profile feeds)
    * Strictly places ONE button per video card, directly ABOVE the author's profile photo (avatar / PP).
-   * Generous margin-bottom ensures ZERO overlap with the avatar. Never touches sidebar.
+   * Absolute positioning anchored 24px above the avatar circle guarantees ZERO overlap.
    */
   function handleTikTokFeed() {
     if (!window.location.hostname.includes("tiktok.com")) return;
@@ -226,52 +226,112 @@
       const video = card.querySelector("video");
       if (!video) return;
 
-      // Find the action column
-      let actionCol = card.querySelector("[class*='ActionBar'], [class*='ActionItemContainer'], [class*='DivActionItemContainer'], [data-e2e*='action-bar']");
-      if (!actionCol) {
-        const likeBtn = card.querySelector("[data-e2e*='like'], button[aria-label*='like' i], button[aria-label*='beğen' i]");
-        if (likeBtn) {
-          let p = likeBtn.parentElement;
-          while (p && p !== card && p !== document.body) {
-            if (p.childElementCount >= 2 && (p.querySelector("[data-e2e*='comment']") || p.querySelector("[data-e2e*='share']"))) {
-              actionCol = p;
-              break;
-            }
-            p = p.parentElement;
+      const cardRect = card.getBoundingClientRect();
+      if (cardRect.width < 100 || cardRect.height < 100) return;
+
+      // 1. Locate Like button first (key landmark of the right action column)
+      const likeBtn = card.querySelector("[data-e2e*='like'], button[aria-label*='like' i], button[aria-label*='beğen' i]");
+
+      // 2. Locate action column container
+      let actionCol = null;
+      if (likeBtn) {
+        let p = likeBtn.parentElement;
+        while (p && p !== card && p !== document.body) {
+          if (p.childElementCount >= 2 && (p.querySelector("[data-e2e*='comment']") || p.querySelector("[data-e2e*='share']"))) {
+            actionCol = p;
+            break;
           }
+          p = p.parentElement;
         }
       }
-      if (!actionCol) return;
 
-      // Ensure actionCol is visually a vertical column in the right half of the card, not in the top-left
-      const colRect = actionCol.getBoundingClientRect();
-      const cardRect = card.getBoundingClientRect();
-      if (colRect.left < cardRect.left + cardRect.width * 0.40 || colRect.left < 200 || colRect.top < 80) return;
+      // Purge any rogue buttons mistakenly inside the action column or below PP
+      if (actionCol) {
+        actionCol.querySelectorAll(".clip-tiktok-action-wrapper").forEach(el => el.remove());
+      }
 
-      // Find author avatar (PP) inside the card
-      const avatar = card.querySelector("a[href*='/@']");
-      const avatarRect = avatar ? avatar.getBoundingClientRect() : null;
+      // 3. Locate the true Author Avatar (PP) on the right side of this video card
+      // Priority A: img tag on the right side (the avatar is the ONLY img in the action column!)
+      const allImgs = Array.from(card.querySelectorAll("img")).filter(img => {
+        const r = img.getBoundingClientRect();
+        return r.left > cardRect.left + cardRect.width * 0.40 &&
+               r.top < cardRect.top + cardRect.height * 0.75 &&
+               r.width >= 20 && r.width <= 90 &&
+               r.height >= 20 && r.height <= 90;
+      });
 
-      // If already injected above avatar, verify position and clean duplicates
-      const existingButtons = Array.from(card.querySelectorAll(".clip-tiktok-action-wrapper"));
-      if (existingButtons.length > 0) {
-        const keeper = existingButtons[0];
-        if (avatar) {
-          const bRect = keeper.getBoundingClientRect();
-          const aRect = avatar.getBoundingClientRect();
-          if (bRect.bottom >= aRect.top - 16) {
-            const shiftUp = (bRect.bottom - aRect.top) + 20;
-            keeper.style.transform = `translateY(-${shiftUp}px)`;
-          }
-        }
-        for (let i = 1; i < existingButtons.length; i++) {
-          existingButtons[i].remove();
-        }
+      // Priority B: Links with /@ on the right side of the card
+      const allUserLinks = Array.from(card.querySelectorAll("a[href*='/@']")).filter(a => {
+        const r = a.getBoundingClientRect();
+        return r.left > cardRect.left + cardRect.width * 0.40 &&
+               r.top < cardRect.top + cardRect.height * 0.75 &&
+               r.width >= 20 && r.height >= 20;
+      });
+
+      // Priority C: Elements matching avatar selectors on the right side
+      const avatarCandidates = Array.from(card.querySelectorAll("[data-e2e*='avatar' i], [class*='Avatar' i], [class*='avatar' i]")).filter(el => {
+        const r = el.getBoundingClientRect();
+        return r.left > cardRect.left + cardRect.width * 0.40 &&
+               r.top < cardRect.top + cardRect.height * 0.75 &&
+               r.width >= 20 && r.height >= 20;
+      });
+
+      const avatarTarget = allImgs[0] || allUserLinks[0] || avatarCandidates[0];
+
+      let targetLeft = 0;
+      let targetTop = 0;
+      let avatarTopBoundary = 0;
+
+      if (avatarTarget) {
+        const aRect = avatarTarget.getBoundingClientRect();
+        avatarTopBoundary = aRect.top;
+        targetLeft = Math.round(aRect.left - cardRect.left + (aRect.width - 44) / 2);
+        // Strictly 24px ABOVE the top of the avatar circle! Zero overlap guaranteed!
+        targetTop = Math.round(aRect.top - cardRect.top - 44 - 24);
+      } else if (likeBtn) {
+        const lRect = likeBtn.getBoundingClientRect();
+        avatarTopBoundary = lRect.top - 60;
+        targetLeft = Math.round(lRect.left - cardRect.left + (lRect.width - 44) / 2);
+        // 160px above likeBtn places it ~24px above where the avatar sits
+        targetTop = Math.round(lRect.top - cardRect.top - 160);
+      } else {
         return;
       }
 
-      // Purge any rogue buttons in this card before injecting
-      card.querySelectorAll(".clip-tiktok-action-wrapper").forEach(el => el.remove());
+      // Safety: clamp targetTop so it never goes negative or out of bounds
+      targetTop = Math.max(12, targetTop);
+
+      // Ensure card is relative positioned so absolute coordinates are rock-solid
+      if (window.getComputedStyle(card).position === "static") {
+        card.style.position = "relative";
+      }
+
+      // Clean any buttons positioned below or overlapping the avatar
+      const existingButtons = Array.from(card.querySelectorAll(".clip-tiktok-action-wrapper"));
+      if (avatarTopBoundary > 0) {
+        existingButtons.forEach(el => {
+          const r = el.getBoundingClientRect();
+          if (r.top >= avatarTopBoundary - 10) {
+            el.remove();
+          }
+        });
+      }
+
+      // Re-query existing buttons after purge
+      const validButtons = Array.from(card.querySelectorAll(".clip-tiktok-action-wrapper"));
+      if (validButtons.length > 0) {
+        const keeper = validButtons[0];
+        keeper.style.position = "absolute";
+        keeper.style.left = `${targetLeft}px`;
+        keeper.style.top = `${targetTop}px`;
+        keeper.style.zIndex = "2147483647";
+        keeper.style.margin = "0";
+        keeper.style.transform = "none";
+        for (let i = 1; i < validButtons.length; i++) {
+          validButtons[i].remove();
+        }
+        return;
+      }
 
       const btnWrapper = document.createElement("div");
       btnWrapper.className = "clip-tiktok-action-wrapper";
@@ -280,6 +340,13 @@
         ? "CLIP — TikTok'u Panoya Kopyala (WhatsApp / Discord)" 
         : "CLIP — Kapalı (Açmak için sağ alttaki simgeye tıklayın)";
       btnWrapper.innerHTML = `<div class="clip-tiktok-action-circle" title="Panoya Kopyala">${ICONS.scissors}</div>`;
+
+      btnWrapper.style.position = "absolute";
+      btnWrapper.style.left = `${targetLeft}px`;
+      btnWrapper.style.top = `${targetTop}px`;
+      btnWrapper.style.zIndex = "2147483647";
+      btnWrapper.style.margin = "0";
+      btnWrapper.style.transform = "none";
 
       btnWrapper.addEventListener("pointerdown", (e) => e.stopPropagation(), { capture: true });
       btnWrapper.addEventListener("mousedown", (e) => e.stopPropagation(), { capture: true });
@@ -291,32 +358,8 @@
         triggerCapture(btnWrapper, video, "tiktok", exactUrl);
       }, { capture: true });
 
-      // Determine precise insertion target: find the avatar unit inside the column
-      let insertTarget = actionCol.firstElementChild;
-      if (avatar) {
-        let p = avatar;
-        while (p && p.parentElement && p.parentElement !== card && p.parentElement !== document.body) {
-          if (p.parentElement === actionCol || p.parentElement.contains(card.querySelector("[data-e2e*='like'], button[aria-label*='like' i]"))) {
-            insertTarget = p;
-            actionCol = p.parentElement;
-            break;
-          }
-          p = p.parentElement;
-        }
-      }
-
-      // Insert directly ABOVE the avatar item in the action column!
-      actionCol.insertBefore(btnWrapper, insertTarget);
-
-      // Verify that after insertion, the button is cleanly separated from the avatar with ZERO overlap
-      if (avatar) {
-        const bRect = btnWrapper.getBoundingClientRect();
-        const aRect = avatar.getBoundingClientRect();
-        if (bRect.bottom >= aRect.top - 16) {
-          const shiftUp = (bRect.bottom - aRect.top) + 20;
-          btnWrapper.style.transform = `translateY(-${shiftUp}px)`;
-        }
-      }
+      // Append directly to the card container as an absolute overlay
+      card.appendChild(btnWrapper);
     });
   }
 

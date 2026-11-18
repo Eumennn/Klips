@@ -92,16 +92,21 @@
   filter: grayscale(0.2) opacity(0.95) !important;
 }
 
-/* TikTok Action Wrapper — Flex Column Alignment (Zero Overlap with Avatar) */
+/* TikTok Action Wrapper — Absolute Positioned Above Avatar (Zero Overlap with Avatar) */
 .clip-tiktok-action-wrapper:not(.clip-tiktok-arrow-nav-btn) {
-  position: static !important;
-  margin-bottom: 28px !important;
-  margin-top: 6px !important;
+  position: absolute !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
-  flex-shrink: 0 !important;
+  width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  z-index: 2147483647 !important;
+  transform: none !important;
 }
 
 .clip-tiktok-arrow-nav-btn {
