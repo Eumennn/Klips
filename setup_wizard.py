@@ -96,15 +96,20 @@ def set_autostart_reg(enable=True):
             if enable:
                 os.makedirs(agent_dir, exist_ok=True)
                 script_path = os.path.join(CURRENT_DIR, "clip_helper.py")
+                venv_python = os.path.join(CURRENT_DIR, ".venv", "bin", "python")
+                python_bin = venv_python if os.path.exists(venv_python) else sys.executable
+                log_path = os.path.join(CURRENT_DIR, "clip_helper.log")
                 plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>com.clip.helper</string>
+    <key>WorkingDirectory</key>
+    <string>{CURRENT_DIR}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>{sys.executable}</string>
+        <string>{python_bin}</string>
         <string>-u</string>
         <string>-B</string>
         <string>{script_path}</string>
@@ -112,13 +117,25 @@ def set_autostart_reg(enable=True):
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
-    <false/>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>{log_path}</string>
+    <key>StandardErrorPath</key>
+    <string>{log_path}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
 </dict>
 </plist>"""
                 with open(plist_path, "w", encoding="utf-8") as f:
                     f.write(plist_content)
+                subprocess.run(["launchctl", "unload", plist_path], capture_output=True)
+                subprocess.run(["launchctl", "load", plist_path], capture_output=True)
             else:
                 if os.path.exists(plist_path):
+                    subprocess.run(["launchctl", "unload", plist_path], capture_output=True)
                     os.remove(plist_path)
             return True
         except Exception as e:

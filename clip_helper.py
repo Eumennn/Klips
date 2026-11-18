@@ -55,17 +55,9 @@ else:
     ctypes = None
     wintypes = None
 
-# Auto-install any missing dependencies on first launch
+# Auto-install any missing core dependencies on first launch
 def ensure_core_packages():
     missing = []
-    try:
-        import PIL
-    except ImportError:
-        missing.append("Pillow")
-    try:
-        import pystray
-    except ImportError:
-        missing.append("pystray")
     try:
         import yt_dlp
     except ImportError:
@@ -74,15 +66,20 @@ def ensure_core_packages():
         import imageio_ffmpeg
     except ImportError:
         missing.append("imageio-ffmpeg")
+    try:
+        import PIL
+    except ImportError:
+        missing.append("Pillow")
+    if IS_WINDOWS:
+        try:
+            import pystray
+        except ImportError:
+            missing.append("pystray")
 
     if missing:
         try:
-            req_file = os.path.join(current_dir, "requirements.txt")
-            if os.path.exists(req_file):
-                subprocess.run([sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet", "--no-warn-script-location"], check=False, **_SUBPROCESS_FLAGS)
-            else:
-                subprocess.run([sys.executable, "-m", "pip", "install", *missing, "--quiet", "--no-warn-script-location"], check=False, **_SUBPROCESS_FLAGS)
-        except Exception as e:
+            subprocess.run([sys.executable, "-m", "pip", "install", *missing, "--quiet", "--no-warn-script-location"], check=False, **_SUBPROCESS_FLAGS)
+        except Exception:
             pass
 
 ensure_core_packages()
@@ -245,17 +242,17 @@ def toggle_active_state(icon=None, item=None):
             pass
 
 def notify_user(title, message):
-    if TRAY_ICON and hasattr(TRAY_ICON, "notify"):
+    if IS_MAC:
         try:
-            TRAY_ICON.notify(title=title, message=message)
+            ct = title.replace('\\', '\\\\').replace('"', '\\"')
+            cm = message.replace('\\', '\\\\').replace('"', '\\"')
+            subprocess.run(["osascript", "-e", f'display notification "{cm}" with title "{ct}"'], capture_output=True, timeout=3)
             return
         except Exception:
             pass
-    if IS_MAC:
+    if TRAY_ICON and hasattr(TRAY_ICON, "notify"):
         try:
-            ct = title.replace('"', '\\"')
-            cm = message.replace('"', '\\"')
-            subprocess.run(["osascript", "-e", f'display notification "{cm}" with title "{ct}"'], capture_output=True)
+            TRAY_ICON.notify(title=title, message=message)
         except Exception:
             pass
 
@@ -301,15 +298,21 @@ def set_autostart(enable=True):
             if enable:
                 os.makedirs(LAUNCH_AGENT_DIR, exist_ok=True)
                 script_path = os.path.abspath(__file__)
+                working_dir = os.path.dirname(script_path)
+                venv_python = os.path.join(working_dir, ".venv", "bin", "python")
+                python_bin = venv_python if os.path.exists(venv_python) else sys.executable
+                log_file = os.path.join(working_dir, "clip_helper.log")
                 plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>com.clip.helper</string>
+    <key>WorkingDirectory</key>
+    <string>{working_dir}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>{sys.executable}</string>
+        <string>{python_bin}</string>
         <string>-u</string>
         <string>-B</string>
         <string>{script_path}</string>
@@ -317,13 +320,25 @@ def set_autostart(enable=True):
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
-    <false/>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>{log_file}</string>
+    <key>StandardErrorPath</key>
+    <string>{log_file}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
 </dict>
 </plist>"""
                 with open(LAUNCH_AGENT_PLIST, "w", encoding="utf-8") as f:
                     f.write(plist_content)
+                subprocess.run(["launchctl", "unload", LAUNCH_AGENT_PLIST], capture_output=True)
+                subprocess.run(["launchctl", "load", LAUNCH_AGENT_PLIST], capture_output=True)
             else:
                 if os.path.exists(LAUNCH_AGENT_PLIST):
+                    subprocess.run(["launchctl", "unload", LAUNCH_AGENT_PLIST], capture_output=True)
                     os.remove(LAUNCH_AGENT_PLIST)
             return True
         except Exception as e:
@@ -398,10 +413,11 @@ def copy_file_to_windows_clipboard(file_path):
 def copy_file_to_macos_clipboard(file_path):
     """
     Copies the video file to macOS Clipboard (Pasteboard) so user can press Cmd+V in WhatsApp, Discord, Finder, etc.
-    Tries 4 robust fallback mechanisms:
-    1. PyObjC / AppKit NSPasteboard (fastest, native Cocoa)
-    2. Built-in Swift Cocoa bridge (/usr/bin/swift)
-    3. AppleScript StandardAdditions (no Finder TCC permission needed)
+    1. Native Cocoa via macOS JavaScript for Automation (JXA via osascript)
+       - Built-in on 100% of macOS systems (zero extra pip packages or Xcode required).
+       - Writes BOTH NSURL (public.file-url) AND NSFilenamesPboardType for universal app compatibility.
+    2. Native Cocoa via PyObjC AppKit (if installed)
+    3. Swift Cocoa one-liner (/usr/bin/swift)
     4. AppleScript Finder fallback
     """
     abs_path = os.path.abspath(file_path)
@@ -409,25 +425,54 @@ def copy_file_to_macos_clipboard(file_path):
         print(f"⚠️ [CLIP] Cannot copy to clipboard, file does not exist: {abs_path}")
         return False
 
-    # Method 1: PyObjC / AppKit
+    # Method 1: macOS JavaScript for Automation (JXA via osascript) - Instant, native Cocoa
+    try:
+        escaped_jxa = abs_path.replace('\\', '\\\\').replace('"', '\\"')
+        jxa_script = (
+            'ObjC.import("AppKit");'
+            'var pb = $.NSPasteboard.generalPasteboard;'
+            'pb.clearContents;'
+            f'var pathStr = $(" {escaped_jxa} ".trim());'
+            'var url = $.NSURL.fileURLWithPath(pathStr);'
+            'pb.writeObjects($.NSArray.arrayWithObject(url));'
+            'pb.setPropertyListForType($.NSArray.arrayWithObject(pathStr), "NSFilenamesPboardType");'
+        )
+        res = subprocess.run(["osascript", "-l", "JavaScript", "-e", jxa_script], capture_output=True, text=True, timeout=5)
+        if res.returncode == 0:
+            print(f"📋 [CLIP] Copied to macOS Clipboard (Native Cocoa JXA): {abs_path}")
+            notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan ⌘V yapabilirsiniz.")
+            cleanup_temp_files()
+            return True
+        else:
+            print(f"⚠️ [CLIP] JXA copy notice: {res.stderr.strip()}")
+    except Exception as e:
+        print(f"⚠️ [CLIP] JXA copy error: {e}")
+
+    # Method 2: PyObjC / AppKit
     try:
         from AppKit import NSPasteboard, NSArray, NSURL
         pb = NSPasteboard.generalPasteboard()
         pb.clearContents()
         url = NSURL.fileURLWithPath_(abs_path)
         pb.writeObjects_(NSArray.arrayWithObject_(url))
-        print(f"📋 [CLIP] Copied to macOS Clipboard (AppKit): {abs_path}")
+        pb.setPropertyList_forType_(NSArray.arrayWithObject_(abs_path), "NSFilenamesPboardType")
+        print(f"📋 [CLIP] Copied to macOS Clipboard (PyObjC AppKit): {abs_path}")
         notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan ⌘V yapabilirsiniz.")
         cleanup_temp_files()
         return True
     except Exception:
         pass
 
-    # Method 2: Swift Cocoa one-liner (uses built-in /usr/bin/swift on macOS)
+    # Method 3: Swift Cocoa one-liner (uses built-in /usr/bin/swift on macOS)
     if shutil.which("swift"):
         try:
-            escaped = abs_path.replace('"', '\\"')
-            swift_cmd = f'import Cocoa; let pb = NSPasteboard.general; pb.clearContents(); pb.writeObjects([NSURL(fileURLWithPath: "{escaped}")])'
+            escaped_swift = abs_path.replace('\\', '\\\\').replace('"', '\\"')
+            swift_cmd = (
+                f'import Cocoa; let pb = NSPasteboard.general; pb.clearContents(); '
+                f'let u = NSURL(fileURLWithPath: "{escaped_swift}"); '
+                f'pb.writeObjects([u]); '
+                f'pb.setPropertyList(["{escaped_swift}"], forType: .init("NSFilenamesPboardType"))'
+            )
             res = subprocess.run(["swift", "-e", swift_cmd], capture_output=True, text=True, timeout=5)
             if res.returncode == 0:
                 print(f"📋 [CLIP] Copied to macOS Clipboard (Swift bridge): {abs_path}")
@@ -437,24 +482,18 @@ def copy_file_to_macos_clipboard(file_path):
         except Exception:
             pass
 
-    # Method 3: AppleScript StandardAdditions (no Finder TCC permission check)
+    # Method 4: Finder fallback
     try:
-        escaped = abs_path.replace('\\', '\\\\').replace('"', '\\"')
-        apple_script = f'set the clipboard to (POSIX file "{escaped}")'
-        res = subprocess.run(["osascript", "-e", apple_script], capture_output=True, text=True, timeout=5)
+        escaped_as = abs_path.replace('\\', '\\\\').replace('"', '\\"')
+        res = subprocess.run(
+            ["osascript", "-e", f'tell application "Finder" to set the clipboard to (POSIX file "{escaped_as}")'],
+            capture_output=True, text=True, timeout=5
+        )
         if res.returncode == 0:
-            print(f"📋 [CLIP] Copied to macOS Clipboard (StandardAdditions): {abs_path}")
+            print(f"📋 [CLIP] Copied to macOS Clipboard (Finder): {abs_path}")
             notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan ⌘V yapabilirsiniz.")
             cleanup_temp_files()
             return True
-        else:
-            # Method 4: Finder fallback
-            res2 = subprocess.run(["osascript", "-e", f'tell application "Finder" to set the clipboard to (POSIX file "{escaped}")'], capture_output=True, text=True, timeout=5)
-            if res2.returncode == 0:
-                print(f"📋 [CLIP] Copied to macOS Clipboard (Finder): {abs_path}")
-                notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan ⌘V yapabilirsiniz.")
-                cleanup_temp_files()
-                return True
     except Exception as e:
         print(f"⚠️ [CLIP] macOS clipboard copy error: {e}")
 
@@ -879,6 +918,8 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
                 "status": "ok" if IS_ACTIVE else "paused",
                 "active": IS_ACTIVE,
                 "service": "CLIP Helper",
+                "version": "2.1.0",
+                "platform": "darwin" if IS_MAC else ("windows" if IS_WINDOWS else "linux"),
                 "has_ffmpeg": bool(FFMPEG_PATH),
                 "clip_dir": CLIP_DIR
             }).encode())
@@ -1128,16 +1169,16 @@ def free_port_if_needed(port):
             pass
     else:
         try:
-            out = subprocess.check_output(f"lsof -ti :{port}", shell=True, text=True)
+            out = subprocess.check_output(f"lsof -ti :{port}", shell=True, text=True, stderr=subprocess.DEVNULL)
             for line in out.strip().splitlines():
                 if line.strip():
                     pid = int(line.strip())
                     if pid != cur_pid:
                         try:
-                            subprocess.run(f"kill -9 {pid}", shell=True, capture_output=True)
-                            time.sleep(0.4)
+                            os.kill(pid, 9)
                         except Exception:
                             pass
+            time.sleep(0.4)
         except Exception:
             pass
 
@@ -1156,8 +1197,8 @@ def main():
     server = ThreadingHTTPServer(("127.0.0.1", PORT), ClipHTTPHandler)
     server.daemon_threads = True
 
-    # Arka planda HTTP sunucusunu çalıştır
-    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    # Arka planda HTTP sunucusunu çalıştır (ana servis)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=False)
     server_thread.start()
 
     print("=" * 60)
@@ -1176,27 +1217,30 @@ def main():
         except Exception:
             pass
 
-    # Self-healing tray loop: if tray ever drops or restarts, re-dock automatically
-    while True:
+    tray_started = False
+    try:
         tray = setup_tray(server)
         if tray:
+            tray_started = True
+            tray.run(setup=on_tray_ready)
+    except KeyboardInterrupt:
+        try:
+            server.shutdown()
+        except Exception:
+            pass
+        return
+    except Exception as e:
+        print(f"Tray notice: {e}")
+
+    # Tray aktif değilse veya desteklenmiyorsa HTTP sunucusunun yaşamaya devam etmesini sağla
+    if not tray_started:
+        try:
+            server_thread.join()
+        except KeyboardInterrupt:
             try:
-                tray.run(setup=on_tray_ready)
-            except KeyboardInterrupt:
-                try:
-                    tray.stop()
-                except Exception:
-                    pass
-                try:
-                    server.shutdown()
-                except Exception:
-                    pass
-                return
-            except Exception as e:
-                print(f"Tray run notice: {e}")
-                time.sleep(2)
-        else:
-            time.sleep(4)
+                server.shutdown()
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     try:
