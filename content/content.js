@@ -209,10 +209,15 @@
   function handleTikTokFeed() {
     if (!window.location.hostname.includes("tiktok.com")) return;
 
-    // Find all video cards in the feed
-    const cards = document.querySelectorAll(
-      "[data-e2e='recommend-list-item-container'], [class*='DivItemContainer'], [class*='ItemContainer'], article"
-    );
+    // Target only unique top-level video cards (prevents nested container duplicate buttons)
+    let cards = Array.from(document.querySelectorAll(
+      "[data-e2e='recommend-list-item-container']"
+    ));
+    if (cards.length === 0) {
+      cards = Array.from(document.querySelectorAll("article, [class*='DivItemContainer'], [class*='ItemContainer']")).filter(c => {
+        return !c.parentElement.closest("article, [class*='ItemContainer'], [class*='DivItemContainer']");
+      });
+    }
 
     cards.forEach(card => {
       // Must NOT be inside a modal, dialog, or DM message popup
@@ -243,14 +248,31 @@
       const cardRect = card.getBoundingClientRect();
       if (colRect.left < cardRect.left + cardRect.width * 0.40 || colRect.left < 200 || colRect.top < 80) return;
 
-      // If already injected as first child of action col, enforce single button and return
-      if (actionCol.firstElementChild && actionCol.firstElementChild.classList.contains("clip-tiktok-action-wrapper")) {
-        let first = true;
-        card.querySelectorAll(".clip-tiktok-action-wrapper").forEach(el => {
-          if (first && el === actionCol.firstElementChild) { first = false; return; }
-          el.remove();
-        });
-        return;
+      // Find author avatar (PP) inside the card
+      const avatar = card.querySelector("a[href*='/@']");
+      const avatarRect = avatar ? avatar.getBoundingClientRect() : null;
+
+      // If already injected above avatar, check and clean any rogue buttons below PP
+      const existingButtons = Array.from(card.querySelectorAll(".clip-tiktok-action-wrapper"));
+      if (existingButtons.length > 0) {
+        // Remove ANY button positioned at or below the avatar (PP)
+        if (avatarRect) {
+          existingButtons.forEach(el => {
+            const r = el.getBoundingClientRect();
+            if (r.top >= avatarRect.top - 5) {
+              el.remove();
+            }
+          });
+        }
+        // If there's still a valid button above avatar, keep only the topmost one
+        const remaining = Array.from(card.querySelectorAll(".clip-tiktok-action-wrapper"));
+        if (remaining.length >= 1) {
+          remaining.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+          for (let i = 1; i < remaining.length; i++) {
+            remaining[i].remove();
+          }
+          return;
+        }
       }
 
       // Purge any rogue buttons in this card before injecting
@@ -276,6 +298,15 @@
 
       // Insert as FIRST child of action column = directly ABOVE the avatar!
       actionCol.insertBefore(btnWrapper, actionCol.firstElementChild);
+
+      // Verify that after insertion, if there's any button below PP, remove it!
+      if (avatarRect) {
+        card.querySelectorAll(".clip-tiktok-action-wrapper").forEach(el => {
+          if (el !== btnWrapper && el.getBoundingClientRect().top >= avatarRect.top - 5) {
+            el.remove();
+          }
+        });
+      }
     });
   }
 
@@ -348,18 +379,15 @@
    * 2b. TikTok Video Detail / Modal / DM Open Video Adapter
    * Covers: /video/ URL, VideoDetail DOM, AND videos opened from DM (/messages).
    * Strictly places ONE button directly ABOVE the UP arrow (^) on screen.
-   * Completely purges ANY stray button at the top-left or near close buttons!
+   * Completely purges ANY stray button at the top-left, to the left, or near close buttons!
    */
   function handleTikTokModal() {
     if (!window.location.hostname.includes("tiktok.com")) return;
 
-    // 1. ALWAYS PURGE ANY BUTTON AT TOP-LEFT OR FLOATING ROGUE (Sol üst temizliği)
-    document.querySelectorAll(".clip-tiktok-action-wrapper, .clip-dm-video-wrapper, .clip-tiktok-arrow-nav-btn").forEach(el => {
-      const r = el.getBoundingClientRect();
-      // Remove any button in top-left quadrant (< 38% of screen width or < 110px from top)
-      if (r.left < window.innerWidth * 0.38 || r.top < 110) {
-        el.remove();
-      }
+    // 1. ALWAYS PURGE ANY BUTTON AT TOP-LEFT OR ROGUE (Sol üst ve sol taraf temizliği)
+    // In modal/DM view, NO feed buttons (.clip-tiktok-action-wrapper not .clip-tiktok-arrow-nav-btn) are allowed!
+    document.querySelectorAll(".clip-tiktok-action-wrapper:not(.clip-tiktok-arrow-nav-btn), .clip-dm-video-wrapper").forEach(el => {
+      el.remove();
     });
 
     // 2. Find the UP arrow button on the right side of the video
@@ -367,20 +395,23 @@
     if (!upArrow) return;
 
     const arrowRect = upArrow.getBoundingClientRect();
+    const targetLeft = arrowRect.left + (arrowRect.width - 40) / 2;
+    const targetTop = arrowRect.top - 48;
+
     const existingModalBtn = document.querySelector(".clip-tiktok-arrow-nav-btn");
 
     if (existingModalBtn) {
-      const btnRect = existingModalBtn.getBoundingClientRect();
-      // Verify it's within 30px horizontally and directly above the upArrow
-      if (Math.abs(btnRect.left - arrowRect.left) < 30 && btnRect.top < arrowRect.top && (arrowRect.top - btnRect.bottom) <= 30 && (arrowRect.top - btnRect.bottom) >= -5) {
-        // Enforce strict single button
-        document.querySelectorAll(".clip-tiktok-arrow-nav-btn").forEach(el => {
-          if (el !== existingModalBtn) el.remove();
-        });
-        return;
+      const bRect = existingModalBtn.getBoundingClientRect();
+      // If position drifted (e.g. scroll/resize), re-align directly above upArrow
+      if (Math.abs(bRect.left - targetLeft) > 5 || Math.abs(bRect.top - targetTop) > 5) {
+        existingModalBtn.style.left = `${targetLeft}px`;
+        existingModalBtn.style.top = `${targetTop}px`;
       }
-      // If it's displaced or in the wrong place, remove it to re-align
-      existingModalBtn.remove();
+      // Enforce strictly single button
+      document.querySelectorAll(".clip-tiktok-arrow-nav-btn").forEach(el => {
+        if (el !== existingModalBtn) el.remove();
+      });
+      return;
     }
 
     // Purge any extra modal buttons
@@ -410,34 +441,14 @@
       triggerCapture(btnWrapper, curVideo, "tiktok", exactUrl);
     }, { capture: true });
 
-    // Try DOM flow insertion if arrowParent is a narrow vertical navigation strip
-    const arrowParent = upArrow.parentElement;
-    let placedInFlow = false;
-    if (arrowParent && arrowParent.childElementCount <= 4) {
-      const pRect = arrowParent.getBoundingClientRect();
-      if (pRect.width < 120) {
-        arrowParent.style.display = "flex";
-        arrowParent.style.flexDirection = "column";
-        arrowParent.style.alignItems = "center";
-        upArrow.insertAdjacentElement("beforebegin", btnWrapper);
-        const bRect = btnWrapper.getBoundingClientRect();
-        if (Math.abs(bRect.left - arrowRect.left) < 25 && bRect.top < arrowRect.top) {
-          placedInFlow = true;
-        }
-      }
-    }
+    // Directly mount with fixed positioning directly ABOVE upArrow
+    btnWrapper.style.position = "fixed";
+    btnWrapper.style.left = `${targetLeft}px`;
+    btnWrapper.style.top = `${targetTop}px`;
+    btnWrapper.style.zIndex = "2147483647";
+    btnWrapper.style.margin = "0";
 
-    // If not placed cleanly in flow, use direct fixed positioning centered above upArrow
-    if (!placedInFlow) {
-      btnWrapper.style.position = "fixed";
-      btnWrapper.style.left = `${arrowRect.left + (arrowRect.width - 40) / 2}px`;
-      btnWrapper.style.top = `${arrowRect.top - 48}px`;
-      btnWrapper.style.zIndex = "2147483647";
-      btnWrapper.style.margin = "0";
-      if (!btnWrapper.parentElement) {
-        document.body.appendChild(btnWrapper);
-      }
-    }
+    document.body.appendChild(btnWrapper);
 
     // Strictly enforce single modal button
     document.querySelectorAll(".clip-tiktok-arrow-nav-btn").forEach(el => {
@@ -1881,10 +1892,19 @@
   function scanAll() {
     if (isUserScrolling) return;
 
-    // TikTok: run feed and modal adapters cleanly
+    // TikTok: route mutually exclusively based on modal vs feed
     if (window.location.hostname.includes("tiktok.com")) {
-      try { handleTikTokFeed(); } catch (e) { console.warn("[CLIP] TikTok Feed err:", e); }
-      try { handleTikTokModal(); } catch (e) { console.warn("[CLIP] TikTok Modal err:", e); }
+      const upArrow = findTikTokModalUpArrow();
+      const isModal = !!upArrow ||
+        !!document.querySelector("[data-e2e='browse-video-container'], [data-e2e='browse-video'], [data-e2e='modal-close-icon'], [class*='browse-video-container']") ||
+        window.location.pathname.includes("/video/");
+
+      if (isModal) {
+        try { handleTikTokModal(); } catch (e) { console.warn("[CLIP] TikTok Modal err:", e); }
+      } else {
+        document.querySelectorAll(".clip-tiktok-arrow-nav-btn").forEach(el => el.remove());
+        try { handleTikTokFeed(); } catch (e) { console.warn("[CLIP] TikTok Feed err:", e); }
+      }
     }
 
     try { handleInstagram(); } catch (e) { console.warn("[CLIP] Instagram err:", e); }
