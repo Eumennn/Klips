@@ -638,8 +638,9 @@ def ensure_whatsapp_compatible(file_path, skip_if_compliant=False):
             return out_path
     except Exception as e:
         print(f"⚠️ [CLIP] FFmpeg faststart/remux pass failed: {e}")
+        return file_path
 
-    return None
+    return file_path
 
 def download_direct_stream(video_url, filename_prefix="clip"):
     """Downloads direct progressive stream URL (e.g. from Instagram CDN or TikTok CDN)"""
@@ -684,27 +685,83 @@ def download_direct_stream(video_url, filename_prefix="clip"):
         print(f"⚠️ [CLIP] Direct stream download failed: {e}")
     return None
 
-def download_twitter_vxtwitter(url):
-    """Fallback for Twitter (X) videos using vxTwitter API"""
+def download_twitter_fallback(url):
+    """
+    Robust fallback for Twitter (X) videos.
+    Extracts tweet ID and queries:
+    1. Official Twitter Syndication API (cdn.syndication.twimg.com)
+    2. FixTweet / FxTwitter API (api.fxtwitter.com)
+    """
     try:
         match = re.search(r'status/(\d+)', url)
         if not match:
             return None
         tweet_id = match.group(1)
-        api_url = f"https://api.vxtwitter.com/Twitter/status/{tweet_id}"
-        req = urllib.request.Request(api_url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        })
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            data = json.loads(resp.read().decode())
-            media = data.get("media_extended") or []
-            for item in media:
-                if item.get("type") == "video" and item.get("url") and ".mp4" in item["url"]:
-                    video_url = item["url"]
-                    print(f"⚡ [CLIP] vxTwitter API resolved MP4: {video_url[:60]}...")
-                    return download_direct_stream(video_url, "twitter")
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+            "Accept": "*/*"
+        }
+
+        def get_resolution(u):
+            m = re.search(r'(\d+)x(\d+)', u)
+            return int(m.group(1)) * int(m.group(2)) if m else 0
+
+        # 1. Primary: Official Twitter Syndication API
+        try:
+            syn_url = f"https://cdn.syndication.twimg.com/tweet-result?id={tweet_id}&token=1"
+            req = urllib.request.Request(syn_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode())
+                variants = data.get("video", {}).get("variants", [])
+                if not variants and data.get("mediaDetails"):
+                    for m in data["mediaDetails"]:
+                        if m.get("video_info", {}).get("variants"):
+                            variants.extend(m["video_info"]["variants"])
+                mp4s = []
+                for v in variants:
+                    v_url = v.get("src") or v.get("url")
+                    if v_url and ".mp4" in v_url and not any(k in v_url for k in ["init", "frag", ".m4s"]):
+                        mp4s.append(v_url)
+                if mp4s:
+                    best_url = max(mp4s, key=get_resolution)
+                    print(f"⚡ [CLIP] Twitter Syndication API resolved MP4: {best_url[:60]}...")
+                    res = download_direct_stream(best_url, "twitter")
+                    if res:
+                        return res
+        except Exception as e:
+            print(f"⚠️ [CLIP] Twitter Syndication attempt: {e}")
+
+        # 2. Secondary: FxTwitter API
+        try:
+            fx_url = f"https://api.fxtwitter.com/x/status/{tweet_id}"
+            req = urllib.request.Request(fx_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode())
+                videos = data.get("tweet", {}).get("media", {}).get("videos", [])
+                if not videos:
+                    all_media = data.get("tweet", {}).get("media", {}).get("all", [])
+                    videos = [m for m in all_media if m.get("type") == "video"]
+                mp4s = []
+                for v in videos:
+                    variants = v.get("variants", []) or v.get("formats", [])
+                    for var in variants:
+                        var_url = var.get("url") or var.get("src")
+                        if var_url and ".mp4" in var_url and not any(k in var_url for k in ["init", "frag", ".m4s"]):
+                            mp4s.append(var_url)
+                    if v.get("url") and ".mp4" in v["url"] and not any(k in v["url"] for k in ["init", "frag", ".m4s"]):
+                        mp4s.append(v["url"])
+                if mp4s:
+                    best_url = max(mp4s, key=get_resolution)
+                    print(f"⚡ [CLIP] FxTwitter API resolved MP4: {best_url[:60]}...")
+                    res = download_direct_stream(best_url, "twitter")
+                    if res:
+                        return res
+        except Exception as e:
+            print(f"⚠️ [CLIP] FxTwitter attempt: {e}")
+
     except Exception as e:
-        print(f"⚠️ [CLIP] vxTwitter attempt: {e}")
+        print(f"⚠️ [CLIP] Twitter fallback error: {e}")
     return None
 
 def download_tiktok_tikwm(url):
@@ -819,14 +876,16 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
     # 3. If it's a generic feed URL without ID and no direct stream
     has_ig_shortcode = bool(re.search(r'instagram\.com/(?:reel|reels|p|tv)/([A-Za-z0-9_-]{9,15})', clean_url))
     has_yt_id = bool(re.search(r'(?:shorts/|v=|youtu\.be/)([a-zA-Z0-9_-]{11})', clean_url))
+    has_tw_id = bool(re.search(r'status/(\d+)', clean_url))
     is_generic_feed = (
+        (is_twitter and not has_tw_id) or
         ("tiktok.com" in clean_url and not "/video/" in clean_url and not "/messages" in clean_url and (not dom_src or not is_valid_progressive_video_url(dom_src))) or
         ("instagram.com" in clean_url and not has_ig_shortcode and not "/direct/" in clean_url and (not dom_src or not is_valid_progressive_video_url(dom_src))) or
         (("youtube.com" in clean_url or "youtu.be" in clean_url) and not has_yt_id) or
         ((clean_url.rstrip("/").endswith("tiktok.com") or clean_url.rstrip("/").endswith("instagram.com") or clean_url.rstrip("/").endswith("youtube.com")) and (not dom_src or not is_valid_progressive_video_url(dom_src)))
     )
     if is_generic_feed and (not dom_src or dom_src.startswith("blob:")):
-        return {"error": "feed_url", "message": "Video akışı tespit edilemedi. Lütfen videodaki CLIP butonuna tekrar basın."}
+        return {"error": "feed_url", "message": "Tweet veya video bağlantısı tespit edilemedi. Lütfen tweet'i açıp tekrar deneyin."}
 
     out_template = os.path.join(CLIP_DIR, "%(id)s_%(epoch)s.%(ext)s")
 
@@ -871,14 +930,15 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
             if final_file and os.path.exists(final_file):
                 copy_file_to_clipboard(final_file)
                 return {"path": final_file}
-    except subprocess.CalledProcessError as e:
-        print(f"⚠️ [CLIP] Error during yt-dlp execution:\n{e.stderr}")
+    except Exception as e:
+        err_msg = getattr(e, "stderr", "") or str(e)
+        print(f"⚠️ [CLIP] Error during yt-dlp execution:\n{err_msg}")
 
-        # Fallback for Twitter (X): vxTwitter API
+        # Fallback for Twitter (X): Syndication & FxTwitter APIs
         if is_twitter:
-            vx_res = download_twitter_vxtwitter(clean_url)
-            if vx_res:
-                return vx_res
+            tw_res = download_twitter_fallback(clean_url)
+            if tw_res:
+                return tw_res
 
         # Fallback for TikTok: TikWM API
         if "tiktok.com" in clean_url and "/video/" in clean_url:
@@ -908,8 +968,15 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
     if new_files:
         latest = max(new_files, key=os.path.getmtime)
         final_file = ensure_whatsapp_compatible(latest, skip_if_compliant=True)
-        copy_file_to_clipboard(final_file)
-        return {"path": final_file}
+        if final_file and os.path.exists(final_file):
+            copy_file_to_clipboard(final_file)
+            return {"path": final_file}
+
+    # Final attempt for Twitter if yt-dlp didn't throw but created nothing
+    if is_twitter:
+        tw_res = download_twitter_fallback(clean_url)
+        if tw_res:
+            return tw_res
 
     return None
 
@@ -945,7 +1012,7 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
                 "status": "ok" if IS_ACTIVE else "paused",
                 "active": IS_ACTIVE,
                 "service": "CLIP Helper",
-                "version": "2.1.0",
+                "version": "2.1.1",
                 "platform": "darwin" if IS_MAC else ("windows" if IS_WINDOWS else "linux"),
                 "has_ffmpeg": bool(FFMPEG_PATH),
                 "clip_dir": CLIP_DIR

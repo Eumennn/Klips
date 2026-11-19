@@ -88,8 +88,9 @@ if (chrome.webRequest && chrome.webRequest.onBeforeRequest) {
             tabMediaStreams.set(tabId, { videoUrl: cleanUrl, platform: "instagram", timestamp: Date.now() });
           }
         } else if (url.includes("video.twimg.com")) {
-          // Twitter: only true .mp4 (never .m4s or .m3u8)
-          if (url.includes(".mp4") && !url.includes(".m4s") && !url.includes(".m3u8")) {
+          // Twitter: only true progressive .mp4 (reject init, frag, m4s, m3u8)
+          const isFragment = url.includes("init") || url.includes("frag") || url.includes("bytestart=") || url.includes(".m4s") || url.includes(".m3u8");
+          if (url.includes(".mp4") && !isFragment) {
             tabMediaStreams.set(tabId, { videoUrl: url, platform: "x", timestamp: Date.now() });
           }
         }
@@ -170,6 +171,16 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
             error: data.error
           };
         }
+      } else {
+        try {
+          const errData = await clipRes.json();
+          if (errData && errData.error && (errData.error.includes("tespit edilemedi") || errData.error.includes("feed"))) {
+            return {
+              success: false,
+              error: errData.error
+            };
+          }
+        } catch (_) {}
       }
     }
   } catch (e) {
@@ -244,31 +255,53 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
     }
   }
 
-  // B) X (Twitter): vxTwitter
+  // B) X (Twitter): Syndication & FxTwitter Fallback
   if (platform === "x") {
     try {
       const tweetId = cleanUrl.match(/status\/(\d+)/)?.[1];
       if (tweetId) {
-        const vxRes = await fetch(`https://api.vxtwitter.com/Twitter/status/${tweetId}`);
-        const vxText = await vxRes.text();
         let directMp4 = null;
+
+        // 1. Twitter Syndication API
         try {
-          const vxJson = JSON.parse(vxText);
-          if (vxJson.media_extended && vxJson.media_extended.length > 0) {
-            for (const m of vxJson.media_extended) {
-              if (m.type === "video" && m.url && m.url.includes(".mp4")) {
-                directMp4 = m.url;
-                break;
-              }
+          const synRes = await fetch(`https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&token=1`);
+          if (synRes.ok) {
+            const synData = await synRes.json();
+            const variants = synData.video?.variants || [];
+            const mp4s = variants
+              .map(v => v.src || v.url)
+              .filter(u => u && u.includes(".mp4") && !u.includes("init") && !u.includes("frag") && !u.includes(".m4s"));
+            if (mp4s.length > 0) {
+              directMp4 = mp4s[mp4s.length - 1];
             }
           }
         } catch (_) {}
+
+        // 2. FxTwitter API
         if (!directMp4) {
-          const matches = vxText.match(/https:\/\/[^"\s\\]+\.mp4(\?[^"\s\\]+)?/gi);
-          if (matches && matches.length > 0) {
-            directMp4 = matches[0];
-          }
+          try {
+            const fxRes = await fetch(`https://api.fxtwitter.com/x/status/${tweetId}`);
+            if (fxRes.ok) {
+              const fxData = await fxRes.json();
+              const videos = fxData.tweet?.media?.videos || fxData.tweet?.media?.all?.filter(m => m.type === "video") || [];
+              for (const v of videos) {
+                const variants = v.variants || v.formats || [];
+                const mp4s = variants
+                  .map(varItem => varItem.url || varItem.src)
+                  .filter(u => u && u.includes(".mp4") && !u.includes("init") && !u.includes("frag") && !u.includes(".m4s"));
+                if (mp4s.length > 0) {
+                  directMp4 = mp4s[mp4s.length - 1];
+                  break;
+                }
+                if (v.url && v.url.includes(".mp4") && !v.url.includes("init") && !v.url.includes("frag") && !v.url.includes(".m4s")) {
+                  directMp4 = v.url;
+                  break;
+                }
+              }
+            }
+          } catch (_) {}
         }
+
         if (directMp4) {
           return await ensureClipboardCopied({
             success: true,
@@ -279,7 +312,7 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
         }
       }
     } catch (e) {
-      console.warn("vxTwitter failed:", e);
+      console.warn("Twitter fallback failed:", e);
     }
   }
 

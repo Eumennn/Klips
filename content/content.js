@@ -749,6 +749,63 @@
   }
 
   /**
+   * Helper: Resolve exact X / Twitter status URL
+   */
+  function findTwitterTweetUrl(tweetEl) {
+    if (!tweetEl) return null;
+
+    // 1. Time element link (canonical tweet permalink: <a href="/user/status/123..."><time ...></time></a>)
+    const timeEl = tweetEl.querySelector("time");
+    if (timeEl) {
+      const parentA = timeEl.closest("a");
+      if (parentA && parentA.href && /\/status\/\d+/.test(parentA.href)) {
+        return parentA.href;
+      }
+    }
+
+    // 2. Query all links inside the tweet that point to a status
+    const anchors = Array.from(tweetEl.querySelectorAll("a[href*='/status/']"));
+    for (const a of anchors) {
+      const h = a.getAttribute("href") || a.href || "";
+      const m = h.match(/\/([a-zA-Z0-9_]+)\/status\/(\d{15,22})/);
+      if (m && m[2]) {
+        return `https://x.com/${m[1]}/status/${m[2]}`;
+      }
+    }
+
+    // 3. Inspect React Fiber on tweetEl for tweet id
+    try {
+      let cur = tweetEl;
+      for (let step = 0; step < 6 && cur; step++) {
+        const fiberKey = Object.keys(cur).find(k => k.startsWith("__reactFiber$") || k.startsWith("__reactProps$"));
+        if (fiberKey && cur[fiberKey]) {
+          let f = cur[fiberKey];
+          for (let depth = 0; depth < 8 && f; depth++) {
+            const props = f.memoizedProps || f.props;
+            if (props) {
+              const s = JSON.stringify(props, (k, v) => (typeof v === 'string' || typeof v === 'number' ? v : (typeof v === 'object' && v !== null && k !== 'children' ? v : undefined)));
+              const m = s && s.match(/"(?:id_str|rest_id|tweet_id)":"(\d{15,22})"/);
+              if (m && m[1]) {
+                return `https://x.com/i/status/${m[1]}`;
+              }
+            }
+            f = f.return;
+          }
+        }
+        cur = cur.parentElement;
+      }
+    } catch (_) {}
+
+    // 4. Current page address if on a tweet status page
+    if (/\/status\/\d+/.test(window.location.href)) {
+      const m = window.location.href.match(/https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[^\/]+\/status\/(\d+)/);
+      if (m) return m[0];
+    }
+
+    return null;
+  }
+
+  /**
    * 4. X / Twitter Adapter (Clean #350842 Pill Button placed directly to the LEFT of Grok logo)
    */
   function handleTwitter() {
@@ -781,10 +838,11 @@
         e.stopPropagation();
 
         const video = tweet.querySelector("video") || videoEl;
-        let exactUrl = window.location.href;
-        const statusAnchor = tweet.querySelector("a[href*='/status/']");
-        if (statusAnchor && statusAnchor.href) {
-          exactUrl = statusAnchor.href;
+        const exactUrl = findTwitterTweetUrl(tweet);
+
+        if (!exactUrl) {
+          showDynamicIslandMessage("⚠️ Tweet bağlantısı tespit edilemedi. Lütfen tweet'i açıp tekrar deneyin.");
+          return;
         }
 
         triggerCapture(btnWrapper, video, "x", exactUrl);
@@ -1699,8 +1757,14 @@
           // Helper servisi çalışıyorsa doğrudan sistem panosuna (Ctrl+V / Cmd+V) kopyalandı
           const clipboardReady = !!response.clipboardCopied;
 
-          // Masaüstü servisi açık değilse otomatik doğrudan tarayıcı indirmesini tetikle (yalnızca geçerli MP4 için)
-          if (!clipboardReady && response.videoUrl && !response.videoUrl.includes(".m3u8") && !response.videoUrl.includes(".m4s")) {
+          // Masaüstü servisi açık değilse otomatik doğrudan tarayıcı indirmesini tetikle (yalnızca tam ve geçerli MP4 için)
+          const isFragmentOrChunk = (url) => {
+            if (!url) return true;
+            const u = url.toLowerCase();
+            return u.includes(".m3u8") || u.includes(".m4s") || u.includes(".mpd") || u.includes("init.") || u.includes("frag") || u.includes("bytestart=");
+          };
+
+          if (!clipboardReady && response.videoUrl && !isFragmentOrChunk(response.videoUrl)) {
             try {
               chrome.runtime.sendMessage({
                 action: "TRIGGER_DOWNLOAD",
