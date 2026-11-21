@@ -150,7 +150,7 @@ def periodic_cleanup_loop():
         time.sleep(30)
         cleanup_temp_files()
 
-# Locate FFmpeg for WhatsApp/Discord compatible H.264/AAC faststart merging
+# Locate FFmpeg for WhatsApp/Discord compatible H.264/AAC faststart merging and MP3 conversion
 FFMPEG_PATH = None
 try:
     import imageio_ffmpeg
@@ -170,6 +170,9 @@ if not FFMPEG_PATH:
         "/opt/homebrew/bin/ffmpeg",
         "/usr/local/bin/ffmpeg",
         "/usr/bin/ffmpeg",
+        os.path.expanduser("~/homebrew/bin/ffmpeg"),
+        os.path.expanduser("~/.local/bin/ffmpeg"),
+        os.path.join(current_dir, "ffmpeg"),
         r"C:\Users\pc\AppData\Local\Programs\Python\Python312\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe",
         r"C:\Users\pc\miniconda3\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe",
     ]
@@ -178,6 +181,28 @@ if not FFMPEG_PATH:
             FFMPEG_PATH = p
             print(f"🎬 [CLIP] FFmpeg detected (fallback): {FFMPEG_PATH}")
             break
+
+if not FFMPEG_PATH:
+    # Scan Python environment site-packages for bundled imageio-ffmpeg binaries
+    try:
+        import site
+        sp_dirs = site.getsitepackages() if hasattr(site, "getsitepackages") else []
+        if hasattr(site, "getusersitepackages"):
+            sp_dirs.append(site.getusersitepackages())
+        for sp in sp_dirs:
+            bin_dir = os.path.join(sp, "imageio_ffmpeg", "binaries")
+            if os.path.isdir(bin_dir):
+                for f in os.listdir(bin_dir):
+                    if f.startswith("ffmpeg"):
+                        cand = os.path.join(bin_dir, f)
+                        if os.path.isfile(cand) and (cand.endswith(".exe") or os.access(cand, os.X_OK)):
+                            FFMPEG_PATH = cand
+                            print(f"🎬 [CLIP] FFmpeg detected (site-packages scan): {FFMPEG_PATH}")
+                            break
+            if FFMPEG_PATH:
+                break
+    except Exception:
+        pass
 
 if not FFMPEG_PATH:
     print("⚠️ [CLIP] FFmpeg not found, falling back to progressive streams.")
@@ -846,6 +871,8 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
     req_start_ts = time.time()
     clean_url = (url or "").strip()
     is_mp3 = (str(media_format).lower() == "mp3")
+    if is_mp3:
+        dom_src = None  # Strictly ignore DOM video streams when MP3 audio is requested
     print(f"⚡ [CLIP] Processing video: {clean_url} (format: {media_format}, dom_src: {bool(dom_src)}, range: {start_time}-{end_time})")
 
     start_sec = parse_time_sec(start_time)
@@ -951,6 +978,10 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
         out_path = result.stdout.strip().splitlines()[-1] if result.stdout and result.stdout.strip() else None
         if out_path and os.path.exists(out_path):
             if is_mp3:
+                if not out_path.lower().endswith(".mp3"):
+                    base_no_ext = os.path.splitext(out_path)[0]
+                    if os.path.exists(base_no_ext + ".mp3"):
+                        out_path = base_no_ext + ".mp3"
                 copy_file_to_clipboard(out_path)
                 return {"path": out_path}
             final_file = ensure_whatsapp_compatible(out_path, skip_if_compliant=True)
@@ -987,16 +1018,39 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
             if direct_res:
                 return direct_res
 
-    # Search strictly for files created in CLIP_DIR during this specific request
+    # For MP3 requests: strictly search for audio files created during this request
+    if is_mp3:
+        audio_files = [
+            os.path.join(CLIP_DIR, f) for f in os.listdir(CLIP_DIR)
+            if f.lower().endswith((".mp3", ".m4a", ".aac", ".opus", ".ogg", ".wav", ".weba"))
+            and os.path.getmtime(os.path.join(CLIP_DIR, f)) >= req_start_ts - 0.5
+        ]
+        if audio_files:
+            mp3_matches = [f for f in audio_files if f.lower().endswith(".mp3")]
+            latest_audio = max(mp3_matches, key=os.path.getmtime) if mp3_matches else max(audio_files, key=os.path.getmtime)
+            if not latest_audio.lower().endswith(".mp3") and FFMPEG_PATH:
+                target_mp3 = os.path.splitext(latest_audio)[0] + ".mp3"
+                try:
+                    subprocess.run(
+                        [FFMPEG_PATH, "-y", "-i", latest_audio, "-vn", "-c:a", "libmp3lame", "-q:a", "0", target_mp3],
+                        check=True, capture_output=True, **_SUBPROCESS_FLAGS
+                    )
+                    if os.path.exists(target_mp3):
+                        latest_audio = target_mp3
+                except Exception as fe:
+                    print(f"⚠️ [CLIP] FFmpeg transcode to mp3 error: {fe}")
+            if os.path.exists(latest_audio):
+                copy_file_to_clipboard(latest_audio)
+                return {"path": latest_audio}
+        return None
+
+    # Search strictly for video files created in CLIP_DIR during this specific request
     new_files = [
         os.path.join(CLIP_DIR, f) for f in os.listdir(CLIP_DIR)
-        if f.endswith((".mp4", ".mkv", ".webm", ".mp3", ".m4a")) and os.path.getmtime(os.path.join(CLIP_DIR, f)) >= req_start_ts - 0.5
+        if f.lower().endswith((".mp4", ".mkv", ".webm")) and os.path.getmtime(os.path.join(CLIP_DIR, f)) >= req_start_ts - 0.5
     ]
     if new_files:
         latest = max(new_files, key=os.path.getmtime)
-        if is_mp3:
-            copy_file_to_clipboard(latest)
-            return {"path": latest}
         final_file = ensure_whatsapp_compatible(latest, skip_if_compliant=True)
         if final_file and os.path.exists(final_file):
             copy_file_to_clipboard(final_file)
@@ -1042,7 +1096,7 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
                 "status": "ok" if IS_ACTIVE else "paused",
                 "active": IS_ACTIVE,
                 "service": "CLIP Helper",
-                "version": "2.1.2",
+                "version": "2.1.3",
                 "platform": "darwin" if IS_MAC else ("windows" if IS_WINDOWS else "linux"),
                 "has_ffmpeg": bool(FFMPEG_PATH),
                 "clip_dir": CLIP_DIR

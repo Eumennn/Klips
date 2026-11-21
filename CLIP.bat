@@ -39,5 +39,8 @@ if errorlevel 1 (
 
 "%PYTHON_EXE%" -c "import setup_wizard; setup_wizard.create_desktop_shortcut(); setup_wizard.set_autostart_reg(True)" >nul 2>&1
 
+:: Eski calisan servisi veya 48123 portunu tutan surecleri sonlandir
+for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":48123" ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
+
 start "" "%PYTHONW_EXE%" -u -B "%SCRIPT_PATH%"
 exit /b 0

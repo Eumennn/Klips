@@ -117,15 +117,16 @@ if (chrome.webRequest && chrome.webRequest.onBeforeRequest) {
 }
 
 /**
- * Universal Video Resolution
+ * Universal Video & Audio Resolution
  */
 async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime, format = "mp4") {
   const cleanUrl = (url || "").trim();
   const platform = detectPlatform(cleanUrl);
+  const isMp3 = (String(format).toLowerCase() === "mp3");
 
-  // Substitute sniffed stream URL for blob: or missing stream on TikTok
-  let effectiveDomSrc = domSrc;
-  if ((!effectiveDomSrc || effectiveDomSrc.startsWith("blob:")) && tabId && tabMediaStreams.has(tabId)) {
+  // Substitute sniffed stream URL for blob: or missing stream on TikTok (video only, never for MP3)
+  let effectiveDomSrc = isMp3 ? null : domSrc;
+  if (!isMp3 && (!effectiveDomSrc || effectiveDomSrc.startsWith("blob:")) && tabId && tabMediaStreams.has(tabId)) {
     const streamRec = tabMediaStreams.get(tabId);
     if (streamRec && streamRec.videoUrl && streamRec.videoUrl.startsWith("http")) {
       effectiveDomSrc = streamRec.videoUrl;
@@ -162,7 +163,8 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime, f
             filePath: data.filePath,
             clipboardCopied: true,
             platform: platform,
-            sourceUrl: cleanUrl
+            sourceUrl: cleanUrl,
+            format: isMp3 ? "mp3" : "mp4"
           };
         }
         if (data && !data.success && data.error) {
@@ -174,17 +176,37 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime, f
       } else {
         try {
           const errData = await clipRes.json();
-          if (errData && errData.error && (errData.error.includes("tespit edilemedi") || errData.error.includes("feed"))) {
+          if (errData && errData.error) {
             return {
               success: false,
               error: errData.error
             };
           }
         } catch (_) {}
+        if (isMp3) {
+          return {
+            success: false,
+            error: "MP3 ses dönüştürme başarısız oldu. Lütfen CLIP masaüstü servisini güncelleyip yeniden başlatın."
+          };
+        }
       }
     }
   } catch (e) {
-    // Helper service not reachable, proceed to browser fallbacks
+    // Helper service not reachable
+    if (isMp3) {
+      return {
+        success: false,
+        error: "MP3 ses kaydetmek için CLIP masaüstü servisinin (CLIP.bat / CLIP.command) açık olması gerekir."
+      };
+    }
+  }
+
+  // STRICT GUARD: If MP3 was requested, NEVER fall back to video streams!
+  if (isMp3) {
+    return {
+      success: false,
+      error: "MP3 ses indirilemedi. Lütfen masaüstü servisini yeniden başlatıp tekrar deneyin."
+    };
   }
 
   // Helper: If local companion is running, ensure resolved video stream is copied to OS clipboard
@@ -193,7 +215,7 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime, f
     if (!result.videoUrl) return result;
 
     try {
-      const helperUrl = `http://127.0.0.1:48123/clip?url=${encodeURIComponent(result.videoUrl)}&dom_src=${encodeURIComponent(result.videoUrl)}`;
+      const helperUrl = `http://127.0.0.1:48123/clip?url=${encodeURIComponent(result.videoUrl)}&dom_src=${encodeURIComponent(result.videoUrl)}&format=${encodeURIComponent(format || "mp4")}`;
       const res = await fetch(helperUrl, { signal: AbortSignal.timeout(20000) });
       if (res.ok) {
         const data = await res.json();

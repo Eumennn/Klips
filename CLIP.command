@@ -91,8 +91,12 @@ fi
 # 4. imageio-ffmpeg veya FFmpeg kontrolü
 $PYTHON_BIN -c "import imageio_ffmpeg" 2>/dev/null || $PIP_BIN install imageio-ffmpeg --break-system-packages 2>/dev/null || $PIP_BIN install imageio-ffmpeg 2>/dev/null
 
-# 5. Eski çalışan servisi sonlandır
+# 5. Eski çalışan servisi ve port 48123'ü tutan süreçleri sonlandır
 pkill -f "clip_helper.py" 2>/dev/null
+PORT_PID=$(lsof -ti :48123 2>/dev/null)
+if [ -n "$PORT_PID" ]; then
+    kill -9 $PORT_PID 2>/dev/null
+fi
 sleep 0.4
 
 # 6. CLIP Arka Plan Servisini Başlat

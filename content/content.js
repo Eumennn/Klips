@@ -1320,18 +1320,31 @@
     }
 
     // Format selection (MP4 vs MP3)
-    formatPills.forEach(pill => {
-      pill.addEventListener("click", () => {
-        formatPills.forEach(p => p.classList.remove("active"));
-        pill.classList.add("active");
-        selectedFormat = pill.getAttribute("data-format") || "mp4";
-        const isMp3 = selectedFormat === "mp3";
-        const submitText = submitBtn.querySelector(".clip-submit-text");
-        if (submitText) {
-          submitText.textContent = isMp3 ? "MP3'ü Kopyala" : "Klibi Kopyala";
-        }
-        updateSummary();
+    const setFormat = (fmt) => {
+      selectedFormat = (fmt || "mp4").toLowerCase();
+      formatPills.forEach(p => {
+        if (p.getAttribute("data-format") === selectedFormat) p.classList.add("active");
+        else p.classList.remove("active");
       });
+      const isMp3 = selectedFormat === "mp3";
+      const submitText = submitBtn.querySelector(".clip-submit-text");
+      if (submitText) {
+        submitText.textContent = isMp3 ? "MP3'ü Kopyala" : "Klibi Kopyala";
+      }
+      updateSummary();
+    };
+
+    formatPills.forEach(pill => {
+      const onSelect = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        const fmt = pill.getAttribute("data-format") || "mp4";
+        setFormat(fmt);
+      };
+      pill.addEventListener("click", onSelect);
+      pill.addEventListener("pointerdown", onSelect);
     });
 
     // Time update ticker for header display
@@ -1394,15 +1407,18 @@
         return;
       }
 
-      const isMp3 = selectedFormat === "mp3";
+      const activePill = flyout.querySelector(".clip-format-pill.active");
+      const chosenFormat = activePill ? (activePill.getAttribute("data-format") || selectedFormat) : selectedFormat;
+      const isMp3 = chosenFormat === "mp3";
+
       submitBtn.disabled = true;
       submitBtn.querySelector(".clip-submit-icon").innerHTML = ICONS.spinner;
       submitBtn.querySelector(".clip-submit-text").textContent = isMp3 ? "MP3 Hazırlanıyor..." : "Klip Hazırlanıyor...";
 
       const cleanUrl = window.location.href.split("&")[0];
-      console.log(`⚡ [CLIP] Trimming YouTube ${selectedFormat.toUpperCase()} clip:`, cleanUrl, s, e);
+      console.log(`⚡ [CLIP] Trimming YouTube ${chosenFormat.toUpperCase()} clip:`, cleanUrl, s, e);
 
-      triggerCapture(btnWrapper, videoEl, "youtube", cleanUrl, s, e, selectedFormat);
+      triggerCapture(btnWrapper, videoEl, "youtube", cleanUrl, s, e, chosenFormat);
 
       // Close flyout after initiating capture
       setTimeout(() => {
@@ -1740,11 +1756,12 @@
     if (watchIcon) watchIcon.innerHTML = ICONS.spinner;
 
     let targetUrl = exactUrl || window.location.href;
-    let domSrc = videoEl ? (videoEl.currentSrc || videoEl.src) : null;
-    if (exactUrl && (exactUrl.includes("cdninstagram.com") || exactUrl.includes("fbcdn.net"))) {
+    const isTargetMp3 = String(mediaFormat).toLowerCase() === "mp3";
+    let domSrc = isTargetMp3 ? null : (videoEl ? (videoEl.currentSrc || videoEl.src) : null);
+    if (!isTargetMp3 && exactUrl && (exactUrl.includes("cdninstagram.com") || exactUrl.includes("fbcdn.net"))) {
       domSrc = exactUrl;
     }
-    if (platform === "instagram") {
+    if (!isTargetMp3 && platform === "instagram") {
       const cdn = findInstagramCdnStream();
       if (cdn) {
         domSrc = cdn;

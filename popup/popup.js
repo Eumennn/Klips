@@ -124,7 +124,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Process Video
+  // Format Selector (MP4 vs MP3)
+  let selectedFormat = "mp4";
+  const formatPills = document.querySelectorAll(".popup-format-pill");
+  const processBtnText = document.getElementById("process-btn-text");
+
+  formatPills.forEach(pill => {
+    pill.addEventListener("click", () => {
+      formatPills.forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      selectedFormat = pill.getAttribute("data-format") || "mp4";
+      if (processBtnText) {
+        processBtnText.textContent = (selectedFormat === "mp3") ? "Sesi Panoya Kopyala" : "Panoya Kopyala";
+      }
+    });
+  });
+
+  // Process Video / Audio
   async function handleProcessVideo() {
     const url = urlInput.value.trim();
     if (!url) {
@@ -135,13 +151,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     inputSection.style.display = "none";
     processingSection.style.display = "flex";
 
+    const isMp3 = selectedFormat === "mp3";
+    const stateTitle = processingSection.querySelector(".state-title");
+    const stateSub = processingSection.querySelector(".state-sub");
+    if (stateTitle) stateTitle.textContent = isMp3 ? "Ses Hazırlanıyor..." : "Video Hazırlanıyor...";
+    if (stateSub) stateSub.textContent = isMp3 ? "MP3 formatına dönüştürülüp panoya kopyalanıyor" : "H.264 formatına dönüştürülüp panoya kopyalanıyor";
+
     chrome.runtime.sendMessage(
-      { action: "RESOLVE_VIDEO", url: url },
+      { action: "RESOLVE_VIDEO", url: url, format: selectedFormat },
       (response) => {
         processingSection.style.display = "none";
 
         if (chrome.runtime.lastError || !response || !response.success) {
-          alert((response && response.error) ? response.error : "Video indirilemedi. Lütfen bağlantıyı veya internetinizi kontrol edin.");
+          alert((response && response.error) ? response.error : "İndirme başarısız oldu. Lütfen bağlantıyı kontrol edin.");
           inputSection.style.display = "flex";
           return;
         }
@@ -163,10 +185,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     readySection.style.display = "flex";
     previewVideo.src = data.videoUrl;
 
+    const isAudio = (data.filename && data.filename.endsWith(".mp3")) || data.format === "mp3";
+    const mime = isAudio ? "audio/mpeg" : "video/mp4";
+
     dragZone.ondragstart = (e) => {
       dragZone.classList.add("dragging");
-      const filename = data.filename || `CLIP_${data.platform || "video"}_${Date.now()}.mp4`;
-      const downloadPayload = `video/mp4:${filename}:${data.videoUrl}`;
+      const filename = data.filename || `CLIP_${data.platform || (isAudio ? "audio" : "video")}_${Date.now()}.${isAudio ? "mp3" : "mp4"}`;
+      const downloadPayload = `${mime}:${filename}:${data.videoUrl}`;
       e.dataTransfer.setData("DownloadURL", downloadPayload);
       e.dataTransfer.setData("text/uri-list", data.videoUrl);
       e.dataTransfer.setData("text/plain", data.videoUrl);
@@ -180,10 +205,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   actionDownloadBtn.addEventListener("click", () => {
     if (!currentResolvedData) return;
+    const isAudio = (currentResolvedData.filename && currentResolvedData.filename.endsWith(".mp3")) || currentResolvedData.format === "mp3";
     chrome.runtime.sendMessage({
       action: "TRIGGER_DOWNLOAD",
       videoUrl: currentResolvedData.videoUrl,
-      platform: currentResolvedData.platform
+      platform: currentResolvedData.platform,
+      format: isAudio ? "mp3" : "mp4"
     });
   });
 
