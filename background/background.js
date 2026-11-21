@@ -119,7 +119,7 @@ if (chrome.webRequest && chrome.webRequest.onBeforeRequest) {
 /**
  * Universal Video Resolution
  */
-async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
+async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime, format = "mp4") {
   const cleanUrl = (url || "").trim();
   const platform = detectPlatform(cleanUrl);
 
@@ -145,9 +145,9 @@ async function resolveVideo(url, tabId, domSrc, inPageUrl, startTime, endTime) {
   try {
     const healthCheck = await fetch("http://127.0.0.1:48123/health", { signal: AbortSignal.timeout(2000) });
     if (healthCheck.ok) {
-      console.log(`⚡ [CLIP] Using local CLIP Helper service on port 48123 (Range: ${startTime}-${endTime})...`);
+      console.log(`⚡ [CLIP] Using local CLIP Helper service on port 48123 (Range: ${startTime}-${endTime}, Format: ${format})...`);
       
-      let helperUrl = `http://127.0.0.1:48123/clip?url=${encodeURIComponent(cleanUrl)}&dom_src=${encodeURIComponent(effectiveDomSrc || "")}`;
+      let helperUrl = `http://127.0.0.1:48123/clip?url=${encodeURIComponent(cleanUrl)}&dom_src=${encodeURIComponent(effectiveDomSrc || "")}&format=${encodeURIComponent(format || "mp4")}`;
       if (startTime !== undefined && startTime !== null && endTime !== undefined && endTime !== null) {
         helperUrl += `&start_time=${encodeURIComponent(startTime)}&end_time=${encodeURIComponent(endTime)}`;
       }
@@ -366,14 +366,15 @@ async function saveToHistory(clipItem) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "RESOLVE_VIDEO") {
     const tabId = sender.tab ? sender.tab.id : null;
-    resolveVideo(message.url, tabId, message.domSrc, message.inPageUrl, message.startTime, message.endTime)
+    resolveVideo(message.url, tabId, message.domSrc, message.inPageUrl, message.startTime, message.endTime, message.format || "mp4")
       .then(async (result) => {
         if (result && result.success) {
           await saveToHistory({
             videoUrl: result.videoUrl,
             sourceUrl: result.sourceUrl,
             platform: result.platform,
-            title: message.title || "CLIP Video"
+            format: message.format || "mp4",
+            title: (message.format === "mp3" ? "🎵 " : "") + (message.title || "CLIP Video")
           });
         }
         sendResponse(result || { success: false, error: "Bilinmeyen sonuç." });
@@ -411,9 +412,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "TRIGGER_DOWNLOAD") {
+    const isAudio = message.format === "mp3" || (message.videoUrl && message.videoUrl.endsWith(".mp3"));
+    const ext = isAudio ? "mp3" : "mp4";
     chrome.downloads.download({
       url: message.videoUrl,
-      filename: `CLIP_${message.platform || "video"}_${Date.now()}.mp4`,
+      filename: `CLIP_${message.platform || "media"}_${Date.now()}.${ext}`,
       saveAs: false
     }, (downloadId) => {
       if (chrome.runtime.lastError) {

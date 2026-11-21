@@ -110,7 +110,7 @@ def cleanup_temp_files(max_age_seconds=600, max_files=5, max_total_bytes=120 * 1
         files = []
         for f in os.listdir(CLIP_DIR):
             fpath = os.path.join(CLIP_DIR, f)
-            if os.path.isfile(fpath) and f.endswith((".mp4", ".mkv", ".webm", ".part", ".tmp")):
+            if os.path.isfile(fpath) and f.endswith((".mp4", ".mkv", ".webm", ".mp3", ".m4a", ".part", ".tmp")):
                 try:
                     mtime = os.path.getmtime(fpath)
                     size = os.path.getsize(fpath)
@@ -400,7 +400,9 @@ def copy_file_to_windows_clipboard(file_path):
         user32.SetClipboardData(CF_HDROP, h_global)
         user32.CloseClipboard()
         print(f"📋 [CLIP] Copied to Windows Clipboard (CF_HDROP): {abs_path}")
-        notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan Ctrl+V yapabilirsiniz.")
+        is_audio = abs_path.lower().endswith((".mp3", ".m4a", ".wav", ".aac"))
+        title = "CLIP — Ses Panoda! 🎵" if is_audio else "CLIP — Video Panoda! 📋"
+        notify_user(title, "WhatsApp veya Discord'a doğrudan Ctrl+V yapabilirsiniz.")
         try:
             cleanup_temp_files()
         except Exception:
@@ -440,7 +442,9 @@ def copy_file_to_macos_clipboard(file_path):
         res = subprocess.run(["osascript", "-l", "JavaScript", "-e", jxa_script], capture_output=True, text=True, timeout=5)
         if res.returncode == 0:
             print(f"📋 [CLIP] Copied to macOS Clipboard (Native Cocoa JXA): {abs_path}")
-            notify_user("CLIP — Video Panoda! 📋", "WhatsApp veya Discord'a doğrudan ⌘V yapabilirsiniz.")
+            is_audio = abs_path.lower().endswith((".mp3", ".m4a", ".wav", ".aac"))
+            title = "CLIP — Ses Panoda! 🎵" if is_audio else "CLIP — Video Panoda! 📋"
+            notify_user(title, "WhatsApp veya Discord'a doğrudan ⌘V yapabilirsiniz.")
             cleanup_temp_files()
             return True
         else:
@@ -558,7 +562,14 @@ def ensure_whatsapp_compatible(file_path, skip_if_compliant=False):
     skip_if_compliant=True: returns file_path as-is when already fully H.264+AAC+yuv420p MP4
     (use when yt-dlp postprocessor already applied +faststart, skips the extra FFmpeg pass entirely)
     """
-    if not FFMPEG_PATH or not os.path.exists(file_path):
+    if not file_path or not os.path.exists(file_path):
+        return file_path
+
+    # Audio files (MP3, M4A, etc.) are already audio-compliant, return as-is
+    if file_path.lower().endswith((".mp3", ".m4a", ".wav", ".aac")):
+        return file_path
+
+    if not FFMPEG_PATH:
         return file_path
 
     try:
@@ -831,10 +842,11 @@ def get_ytdlp_cmd():
 
     return [sys.executable, "-m", "yt_dlp"]
 
-def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_time=None):
+def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_time=None, media_format="mp4"):
     req_start_ts = time.time()
     clean_url = (url or "").strip()
-    print(f"⚡ [CLIP] Processing video: {clean_url} (dom_src: {bool(dom_src)}, range: {start_time}-{end_time})")
+    is_mp3 = (str(media_format).lower() == "mp3")
+    print(f"⚡ [CLIP] Processing video: {clean_url} (format: {media_format}, dom_src: {bool(dom_src)}, range: {start_time}-{end_time})")
 
     start_sec = parse_time_sec(start_time)
     end_sec = parse_time_sec(end_time)
@@ -843,9 +855,9 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
     is_twitter = ("twitter.com" in clean_url or "x.com" in clean_url)
     is_instagram = "instagram.com" in clean_url
 
-    # 1. Direct stream provided (ONLY for non-Twitter and valid progressive MP4s)
+    # 1. Direct stream provided (ONLY for non-Twitter and valid progressive MP4s, and NOT when MP3 is requested)
     # Twitter streams in browser are always .m4s fragments and Instagram has audio-only streams
-    if not is_twitter and not is_instagram and dom_src and is_valid_progressive_video_url(dom_src) and not has_time_range:
+    if not is_mp3 and not is_twitter and not is_instagram and dom_src and is_valid_progressive_video_url(dom_src) and not has_time_range:
         print("⚡ [CLIP] Direct progressive HTTP stream provided, downloading directly...")
         res = download_direct_stream(dom_src, "direct_video")
         if res:
@@ -854,20 +866,20 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
     # 1b. Instagram DM direct stream support:
     # In Instagram DM (/direct/) or when clean_url is a direct video/CDN stream
     has_ig_shortcode = bool(re.search(r'instagram\.com/(?:reel|reels|p|tv)/([A-Za-z0-9_-]{9,15})', clean_url))
-    if any(k in clean_url.lower() for k in ["cdninstagram.com", "fbcdn.net"]) and is_valid_progressive_video_url(clean_url):
+    if not is_mp3 and any(k in clean_url.lower() for k in ["cdninstagram.com", "fbcdn.net"]) and is_valid_progressive_video_url(clean_url):
         print("⚡ [CLIP] Instagram direct CDN URL detected, downloading directly...")
         res = download_direct_stream(clean_url, "instagram_dm")
         if res:
             return res
 
-    if is_instagram and not has_time_range and dom_src and is_valid_progressive_video_url(dom_src):
+    if not is_mp3 and is_instagram and not has_time_range and dom_src and is_valid_progressive_video_url(dom_src):
         print("⚡ [CLIP] Instagram progressive CDN stream detected, downloading directly...")
         res = download_direct_stream(dom_src, "instagram")
         if res:
             return res
 
     # 2. TikTok specific optimizations: try TikWM first for watermark-free MP4
-    if "tiktok.com" in clean_url and not has_time_range:
+    if not is_mp3 and "tiktok.com" in clean_url and not has_time_range:
         if "/video/" in clean_url:
             tikwm_res = download_tiktok_tikwm(clean_url)
             if tikwm_res:
@@ -889,21 +901,34 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
 
     out_template = os.path.join(CLIP_DIR, "%(id)s_%(epoch)s.%(ext)s")
 
-    # Format: prefer AVC H.264 + AAC 1080p, with fast fallback to 1080p best
-    video_format = "bestvideo[vcodec^=avc][height<=1080]+bestaudio[acodec^=mp4a]/bestvideo[height<=1080]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[ext=mp4][height<=1080]/best"
-
-    cmd = get_ytdlp_cmd() + [
-        "--paths", CLIP_DIR,
-        "--paths", f"temp:{CLIP_DIR}",
-        "--no-playlist",
-        "--force-overwrites",
-        "--extractor-args", "youtube:player_client=android,web",
-        "--concurrent-fragments", "5",
-        "-f", video_format,
-        "--merge-output-format", "mp4",
-        "-o", out_template,
-        "--print", "after_move:filepath",
-    ]
+    if is_mp3:
+        cmd = get_ytdlp_cmd() + [
+            "--paths", CLIP_DIR,
+            "--paths", f"temp:{CLIP_DIR}",
+            "--no-playlist",
+            "--force-overwrites",
+            "--extractor-args", "youtube:player_client=android,web",
+            "-x",
+            "--audio-format", "mp3",
+            "--audio-quality", "0",
+            "-o", out_template,
+            "--print", "after_move:filepath",
+        ]
+    else:
+        # Format: prefer AVC H.264 + AAC 1080p, with fast fallback to 1080p best
+        video_format = "bestvideo[vcodec^=avc][height<=1080]+bestaudio[acodec^=mp4a]/bestvideo[height<=1080]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[ext=mp4][height<=1080]/best"
+        cmd = get_ytdlp_cmd() + [
+            "--paths", CLIP_DIR,
+            "--paths", f"temp:{CLIP_DIR}",
+            "--no-playlist",
+            "--force-overwrites",
+            "--extractor-args", "youtube:player_client=android,web",
+            "--concurrent-fragments", "5",
+            "-f", video_format,
+            "--merge-output-format", "mp4",
+            "-o", out_template,
+            "--print", "after_move:filepath",
+        ]
 
     # Enable Node.js runtime for solving YouTube JS challenges if installed
     if shutil.which("node"):
@@ -916,7 +941,8 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
 
     if FFMPEG_PATH:
         cmd.extend(["--ffmpeg-location", FFMPEG_PATH])
-        cmd.extend(["--postprocessor-args", "ffmpeg:-movflags +faststart"])
+        if not is_mp3:
+            cmd.extend(["--postprocessor-args", "ffmpeg:-movflags +faststart"])
 
     cmd.append(clean_url)
 
@@ -924,8 +950,9 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
         result = subprocess.run(cmd, capture_output=True, text=True, check=True, **_SUBPROCESS_FLAGS)
         out_path = result.stdout.strip().splitlines()[-1] if result.stdout and result.stdout.strip() else None
         if out_path and os.path.exists(out_path):
-            # yt-dlp already applied --postprocessor-args "ffmpeg:-movflags +faststart"
-            # so if output is a compliant H.264+AAC MP4, skip the extra FFmpeg pass for speed
+            if is_mp3:
+                copy_file_to_clipboard(out_path)
+                return {"path": out_path}
             final_file = ensure_whatsapp_compatible(out_path, skip_if_compliant=True)
             if final_file and os.path.exists(final_file):
                 copy_file_to_clipboard(final_file)
@@ -935,26 +962,26 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
         print(f"⚠️ [CLIP] Error during yt-dlp execution:\n{err_msg}")
 
         # Fallback for Twitter (X): Syndication & FxTwitter APIs
-        if is_twitter:
+        if is_twitter and not is_mp3:
             tw_res = download_twitter_fallback(clean_url)
             if tw_res:
                 return tw_res
 
         # Fallback for TikTok: TikWM API
-        if "tiktok.com" in clean_url and "/video/" in clean_url:
+        if not is_mp3 and "tiktok.com" in clean_url and "/video/" in clean_url:
             tikwm_res = download_tiktok_tikwm(clean_url)
             if tikwm_res:
                 return tikwm_res
 
         # Fallback for Instagram (e.g. DM / private reel): try direct stream if available
-        if is_instagram and dom_src and is_valid_progressive_video_url(dom_src):
+        if not is_mp3 and is_instagram and dom_src and is_valid_progressive_video_url(dom_src):
             print("⚡ [CLIP] yt-dlp failed on Instagram, attempting direct stream fallback...")
             direct_res = download_direct_stream(dom_src, "instagram_dm")
             if direct_res:
                 return direct_res
 
         # Fallback for TikTok DM direct stream if yt-dlp and TikWM fail
-        if "tiktok.com" in clean_url and dom_src and is_valid_progressive_video_url(dom_src):
+        if not is_mp3 and "tiktok.com" in clean_url and dom_src and is_valid_progressive_video_url(dom_src):
             print("⚡ [CLIP] TikTok direct stream fallback...")
             direct_res = download_direct_stream(dom_src, "tiktok_dm")
             if direct_res:
@@ -963,17 +990,20 @@ def download_video_ytdlp(url, is_pro=True, dom_src=None, start_time=None, end_ti
     # Search strictly for files created in CLIP_DIR during this specific request
     new_files = [
         os.path.join(CLIP_DIR, f) for f in os.listdir(CLIP_DIR)
-        if f.endswith((".mp4", ".mkv", ".webm")) and os.path.getmtime(os.path.join(CLIP_DIR, f)) >= req_start_ts - 0.5
+        if f.endswith((".mp4", ".mkv", ".webm", ".mp3", ".m4a")) and os.path.getmtime(os.path.join(CLIP_DIR, f)) >= req_start_ts - 0.5
     ]
     if new_files:
         latest = max(new_files, key=os.path.getmtime)
+        if is_mp3:
+            copy_file_to_clipboard(latest)
+            return {"path": latest}
         final_file = ensure_whatsapp_compatible(latest, skip_if_compliant=True)
         if final_file and os.path.exists(final_file):
             copy_file_to_clipboard(final_file)
             return {"path": final_file}
 
     # Final attempt for Twitter if yt-dlp didn't throw but created nothing
-    if is_twitter:
+    if is_twitter and not is_mp3:
         tw_res = download_twitter_fallback(clean_url)
         if tw_res:
             return tw_res
@@ -1012,7 +1042,7 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
                 "status": "ok" if IS_ACTIVE else "paused",
                 "active": IS_ACTIVE,
                 "service": "CLIP Helper",
-                "version": "2.1.1",
+                "version": "2.1.2",
                 "platform": "darwin" if IS_MAC else ("windows" if IS_WINDOWS else "linux"),
                 "has_ffmpeg": bool(FFMPEG_PATH),
                 "clip_dir": CLIP_DIR
@@ -1093,6 +1123,7 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
             is_pro = query.get("is_pro", ["0"])[0] in ["1", "true", "True"]
             start_time = query.get("start_time", [None])[0]
             end_time = query.get("end_time", [None])[0]
+            media_format = query.get("format", ["mp4"])[0].lower()
 
             if not url and not dom_src:
                 self.send_response(400)
@@ -1101,7 +1132,7 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(b'{"error": "No URL or stream provided"}')
                 return
 
-            res = download_video_ytdlp(url or dom_src, is_pro=True, dom_src=dom_src, start_time=start_time, end_time=end_time)
+            res = download_video_ytdlp(url or dom_src, is_pro=True, dom_src=dom_src, start_time=start_time, end_time=end_time, media_format=media_format)
 
             if isinstance(res, dict) and res.get("error") == "feed_url":
                 self.send_response(200)
@@ -1130,7 +1161,7 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self.send_cors_headers()
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": "Video indirilemedi."}).encode())
+                self.wfile.write(json.dumps({"success": False, "error": "Video veya ses indirilemedi."}).encode())
             return
 
         if parsed.path.startswith("/video/"):
@@ -1140,7 +1171,8 @@ class ClipHTTPHandler(http.server.BaseHTTPRequestHandler):
                 size = os.path.getsize(fpath)
                 self.send_response(200)
                 self.send_cors_headers()
-                self.send_header("Content-Type", "video/mp4")
+                content_type = "audio/mpeg" if fname.lower().endswith(".mp3") else "video/mp4"
+                self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(size))
                 self.send_header("Accept-Ranges", "bytes")
                 self.end_headers()

@@ -513,6 +513,73 @@ button.clip-yt-watch-btn.active {
   border-radius: 6px !important;
 }
 
+/* MP4 / MP3 Segmented Control for YouTube Trimmer Flyout */
+.clip-flyout-format-wrap {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+.clip-format-segmented {
+  display: inline-flex !important;
+  align-items: center !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 9px !important;
+  padding: 2px !important;
+  gap: 2px !important;
+}
+
+.clip-format-pill {
+  padding: 3px 9px !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 7px !important;
+  color: #94a3b8 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  cursor: pointer !important;
+  transition: all 0.16s ease !important;
+  user-select: none !important;
+  line-height: 1.2 !important;
+  outline: none !important;
+}
+
+.clip-format-pill:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.clip-format-pill.active {
+  background: linear-gradient(135deg, #4d0d60 0%, #350842 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(140, 31, 175, 0.6) !important;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35), 0 0 10px rgba(140, 31, 175, 0.3) !important;
+}
+
+.clip-fmt-tag-mp4 {
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  color: #a855f7 !important;
+  background: rgba(168, 85, 247, 0.14) !important;
+  border: 1px solid rgba(168, 85, 247, 0.3) !important;
+  padding: 1px 6px !important;
+  border-radius: 5px !important;
+  margin-left: 4px !important;
+}
+
+.clip-fmt-tag-mp3 {
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.14) !important;
+  border: 1px solid rgba(56, 189, 248, 0.3) !important;
+  padding: 1px 6px !important;
+  border-radius: 5px !important;
+  margin-left: 4px !important;
+}
+
 .clip-flyout-presets-wrap {
   display: flex !important;
   align-items: center !important;

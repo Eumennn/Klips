@@ -1234,6 +1234,13 @@
           <span class="clip-flyout-time-tag" id="clip-cur-time-display">${formatTime(curTime)}</span>
         </div>
 
+        <div class="clip-flyout-format-wrap">
+          <div class="clip-format-segmented" role="radiogroup" aria-label="Format Seçimi">
+            <button type="button" class="clip-format-pill active" data-format="mp4" title="Video (MP4) olarak kaydet">MP4</button>
+            <button type="button" class="clip-format-pill" data-format="mp3" title="Sadece Ses (MP3) olarak kaydet">MP3</button>
+          </div>
+        </div>
+
         <div class="clip-flyout-presets-wrap">
           <span class="clip-presets-title">Süre:</span>
           <button type="button" class="clip-preset-pill" data-preset="15">15s</button>
@@ -1265,7 +1272,7 @@
       </div>
 
       <div class="clip-flyout-bottom-row">
-        <span id="clip-duration-summary">Klip Süresi: <strong>30 sn</strong></span>
+        <span id="clip-duration-summary">Klip Süresi: <strong>30 sn</strong> • <span class="clip-fmt-tag-mp4">MP4 Video</span></span>
         <span class="clip-summary-compat">WhatsApp / Discord için panoya kopyalanır</span>
       </div>
     `;
@@ -1290,16 +1297,42 @@
     const endInp = flyout.querySelector("#clip-end-inp");
     const durationSummary = flyout.querySelector("#clip-duration-summary");
     const presetPills = flyout.querySelectorAll(".clip-preset-pill");
+    const formatPills = flyout.querySelectorAll(".clip-format-pill");
     const submitBtn = flyout.querySelector("#clip-flyout-submit");
     const curTimeDisplay = flyout.querySelector("#clip-cur-time-display");
+
+    let selectedFormat = "mp4";
 
     function updateSummary() {
       const s = parseTimeToSeconds(startInp.value);
       const e = parseTimeToSeconds(endInp.value);
       const diff = Math.max(0, e - s);
       const diffStr = diff >= 60 ? `${Math.floor(diff / 60)} dk ${Math.floor(diff % 60)} sn` : `${Math.floor(diff)} sn`;
-      durationSummary.innerHTML = `Klip Süresi: <strong>${diffStr}</strong>`;
+      const isMp3 = selectedFormat === "mp3";
+      const badge = isMp3 ? '<span class="clip-fmt-tag-mp3">MP3 Ses</span>' : '<span class="clip-fmt-tag-mp4">MP4 Video</span>';
+      durationSummary.innerHTML = `Klip Süresi: <strong>${diffStr}</strong> • ${badge}`;
+      const compatSpan = flyout.querySelector(".clip-summary-compat");
+      if (compatSpan) {
+        compatSpan.textContent = isMp3 
+          ? "WhatsApp / Discord için ses dosyası olarak panoya kopyalanır"
+          : "WhatsApp / Discord için panoya kopyalanır";
+      }
     }
+
+    // Format selection (MP4 vs MP3)
+    formatPills.forEach(pill => {
+      pill.addEventListener("click", () => {
+        formatPills.forEach(p => p.classList.remove("active"));
+        pill.classList.add("active");
+        selectedFormat = pill.getAttribute("data-format") || "mp4";
+        const isMp3 = selectedFormat === "mp3";
+        const submitText = submitBtn.querySelector(".clip-submit-text");
+        if (submitText) {
+          submitText.textContent = isMp3 ? "MP3'ü Kopyala" : "Klibi Kopyala";
+        }
+        updateSummary();
+      });
+    });
 
     // Time update ticker for header display
     const ticker = setInterval(() => {
@@ -1361,14 +1394,15 @@
         return;
       }
 
+      const isMp3 = selectedFormat === "mp3";
       submitBtn.disabled = true;
       submitBtn.querySelector(".clip-submit-icon").innerHTML = ICONS.spinner;
-      submitBtn.querySelector(".clip-submit-text").textContent = "Klip Hazırlanıyor...";
+      submitBtn.querySelector(".clip-submit-text").textContent = isMp3 ? "MP3 Hazırlanıyor..." : "Klip Hazırlanıyor...";
 
       const cleanUrl = window.location.href.split("&")[0];
-      console.log("⚡ [CLIP] Trimming YouTube clip:", cleanUrl, s, e);
+      console.log(`⚡ [CLIP] Trimming YouTube ${selectedFormat.toUpperCase()} clip:`, cleanUrl, s, e);
 
-      triggerCapture(btnWrapper, videoEl, "youtube", cleanUrl, s, e);
+      triggerCapture(btnWrapper, videoEl, "youtube", cleanUrl, s, e, selectedFormat);
 
       // Close flyout after initiating capture
       setTimeout(() => {
@@ -1685,12 +1719,12 @@
   /**
    * Trigger Video Capture & Windows Clipboard Copy
    */
-  async function triggerCapture(targetWrapper, videoEl, platform, exactUrl, startTime, endTime) {
+  async function triggerCapture(targetWrapper, videoEl, platform, exactUrl, startTime, endTime, mediaFormat = "mp4") {
     if (!isCompanionActive) {
       showDynamicIslandMessage("⏸️ CLIP sistem tepsisinden kapalı. Açmak için sağ alttaki simgeye bir kez tıklayın.");
       return;
     }
-    console.log("⚡ [CLIP] Capturing video...", platform, exactUrl, startTime, endTime);
+    console.log("⚡ [CLIP] Capturing video...", platform, exactUrl, startTime, endTime, mediaFormat);
 
     const hasTimeRange = startTime !== undefined && startTime !== null && endTime !== undefined && endTime !== null;
 
@@ -1737,7 +1771,8 @@
           domSrc: domSrc,
           title: title,
           startTime: startTime,
-          endTime: endTime
+          endTime: endTime,
+          format: mediaFormat || "mp4"
         },
         async (response) => {
           clearTimeout(safetyTimeout);
@@ -1769,7 +1804,8 @@
               chrome.runtime.sendMessage({
                 action: "TRIGGER_DOWNLOAD",
                 videoUrl: response.videoUrl,
-                platform: platform
+                platform: platform,
+                format: mediaFormat || "mp4"
               });
             } catch (_) {}
           }
@@ -1777,16 +1813,18 @@
           // Drag & drop için blob'u yükle (sadece küçük/erişilebilir URL'ler için)
           let preloadedFile = null;
           if (response.videoUrl) {
+            const isAudio = (response.filename && response.filename.endsWith(".mp3")) || mediaFormat === "mp3";
+            const mimeType = isAudio ? "audio/mpeg" : "video/mp4";
             fetch(response.videoUrl, { mode: "cors", credentials: "omit" })
               .then(r => r.blob())
               .then(raw => {
-                const blob = new Blob([raw], { type: "video/mp4" });
-                preloadedFile = new File([blob], response.filename || `CLIP_${platform}_${Date.now()}.mp4`, { type: "video/mp4" });
+                const blob = new Blob([raw], { type: mimeType });
+                preloadedFile = new File([blob], response.filename || `CLIP_${platform}_${Date.now()}.${isAudio ? "mp3" : "mp4"}`, { type: mimeType });
               })
               .catch(() => { /* CORS engellediyse preloadedFile null kalır */ });
           }
 
-          renderDynamicIsland(targetWrapper, response.videoUrl, platform, response.filename, response.filePath, preloadedFile, clipboardReady);
+          renderDynamicIsland(targetWrapper, response.videoUrl, platform, response.filename, response.filePath, preloadedFile, clipboardReady, mediaFormat);
           setTimeout(() => resetButtonState(targetWrapper), 3000);
         }
       );
@@ -1814,7 +1852,7 @@
    */
   let islandDismissTimeout = null;
 
-  function renderDynamicIsland(targetWrapper, videoUrl, platform, customFilename, filePath, preloadedFile, clipboardReady) {
+  function renderDynamicIsland(targetWrapper, videoUrl, platform, customFilename, filePath, preloadedFile, clipboardReady, mediaFormat = "mp4") {
     const existing = document.querySelector(".clip-portal-capsule");
     if (existing) existing.remove();
 
@@ -1827,13 +1865,16 @@
     capsule.addEventListener("mousedown", (e) => e.stopPropagation());
     capsule.addEventListener("click", (e) => e.stopPropagation());
 
-    const filename = customFilename || `CLIP_${platform || "video"}_${Date.now()}.mp4`;
+    const isAudio = (customFilename && customFilename.endsWith(".mp3")) || mediaFormat === "mp3";
+    const filename = customFilename || `CLIP_${platform || (isAudio ? "audio" : "video")}_${Date.now()}.${isAudio ? "mp3" : "mp4"}`;
 
     // 1. Status Indicator
     const statusSpan = document.createElement("span");
     statusSpan.className = "clip-island-status";
     if (clipboardReady) {
-      statusSpan.innerHTML = `${ICONS.check} <span>Panoda Hazır (${PASTE_KEY})</span>`;
+      statusSpan.innerHTML = isAudio
+        ? `${ICONS.check} <span>Ses Panoda (${PASTE_KEY})</span>`
+        : `${ICONS.check} <span>Panoda Hazır (${PASTE_KEY})</span>`;
     } else {
       // Auto-download already triggered above; guide user to WhatsApp attach
       statusSpan.innerHTML = `${ICONS.check} <span>İndirildi — WhatsApp'ta 📎 ile yükle</span>`;
@@ -1872,7 +1913,8 @@
       if (preloadedFile) {
         e.dataTransfer.items.add(preloadedFile);
       }
-      e.dataTransfer.setData("DownloadURL", `video/mp4:${filename}:${videoUrl}`);
+      const dataMime = isAudio ? "audio/mpeg" : "video/mp4";
+      e.dataTransfer.setData("DownloadURL", `${dataMime}:${filename}:${videoUrl}`);
       e.dataTransfer.effectAllowed = "copyMove";
     });
 
@@ -1887,12 +1929,12 @@
     // 7. Download Button
     const downloadBtn = document.createElement("button");
     downloadBtn.className = "clip-portal-icon-btn";
-    downloadBtn.title = "MP4 İndir";
+    downloadBtn.title = isAudio ? "MP3 İndir" : "MP4 İndir";
     downloadBtn.innerHTML = ICONS.download;
     downloadBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       if (videoUrl) {
-        chrome.runtime.sendMessage({ action: "TRIGGER_DOWNLOAD", videoUrl, platform });
+        chrome.runtime.sendMessage({ action: "TRIGGER_DOWNLOAD", videoUrl, platform, format: isAudio ? "mp3" : "mp4" });
         statusSpan.innerHTML = `${ICONS.check} <span>İndiriliyor…</span>`;
       }
     });
